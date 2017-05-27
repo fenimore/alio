@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -31,11 +32,11 @@ func main() {
 	fmt.Println("Welcome")
 	albums, err := CollectAlbums(DIR)
 	if err != nil {
-		fmt.Println(err)
+		panic(err)
 	}
 
-	libTable := tui.NewTable(0, 0)
-	libTable.SetColumnStretch(0, 0)
+	libTable := tui.NewTable(0, 1)
+	libTable.SetColumnStretch(0, 1)
 
 	library := tui.NewVBox(
 		tui.NewLabel("Albums"),
@@ -45,10 +46,6 @@ func main() {
 	library.SetBorder(true)
 
 	list := tui.NewList()
-	for _, v := range albums[0].Songs {
-		list.AddItems(v)
-	}
-
 	songList := tui.NewVBox(
 		tui.NewLabel("Songs"),
 		list,
@@ -62,19 +59,25 @@ func main() {
 		)
 	}
 
-	libTable.OnSelectionChanged(func(t *tui.Table) {
-		list.RemoveItems()
-		for _, v := range albums[libTable.Selected()].Songs {
-			list.AddItems(v)
-		}
-		list.SetFocused(true)
-	})
-
 	progress := tui.NewProgress(100)
 	progress.SetCurrent(0)
 
 	status := tui.NewStatusBar("Song Title + Time")
+	status.SetText(strconv.Itoa(libTable.Selected()))
 	status.SetPermanentText("Volume")
+
+	libTable.OnSelectionChanged(func(t *tui.Table) {
+		if libTable.Selected() == 0 {
+			return
+		}
+		progress.SetCurrent(libTable.Selected() * 10)
+		status.SetText(strconv.Itoa(libTable.Selected()))
+		list.RemoveItems()
+
+		for _, v := range albums[libTable.Selected()-1].Songs {
+			list.AddItems(v)
+		}
+	})
 
 	selection := tui.NewHBox(
 		library,
@@ -90,14 +93,27 @@ func main() {
 	)
 
 	ui := tui.New(root)
+
+	// Key bindings
 	ui.SetKeybinding(tui.KeyEsc, func() { ui.Quit() })
 	ui.SetKeybinding('q', func() { ui.Quit() })
 	ui.SetKeybinding(tui.KeySpace, func() { status.SetText("Play") })
-	// ui.SetKeybinding(tui.KeyArrowRight, func() { list.SetFocused(true); library.SetFocused(false) })
-	// ui.SetKeybinding(tui.KeyArrowLeft, func() { list.SetFocused(false); library.SetFocused(true) })
+	ui.SetKeybinding(tui.KeyEnter, func() {
+		s := libTable.Selected() - 1
+		if s == -1 {
+			return
+		}
+
+		go playAlbum(albums[s])
+	})
+
 	if err := ui.Run(); err != nil {
 		panic(err)
 	}
+}
+
+func playAlbum(album *Album) {
+
 }
 
 func CollectAlbums(root string) ([]*Album, error) {

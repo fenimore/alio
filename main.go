@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/fsnotify/fsnotify"
+	"github.com/marcusolsson/tui-go"
 	"io/ioutil"
 	"os"
 	"path"
@@ -32,8 +33,71 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Println(albums)
 
+	libTable := tui.NewTable(0, 0)
+	libTable.SetColumnStretch(0, 0)
+
+	library := tui.NewVBox(
+		tui.NewLabel("Albums"),
+		libTable,
+		tui.NewSpacer(),
+	)
+	library.SetBorder(true)
+
+	list := tui.NewList()
+	for _, v := range albums[0].Songs {
+		list.AddItems(v)
+	}
+
+	songList := tui.NewVBox(
+		tui.NewLabel("Songs"),
+		list,
+		tui.NewSpacer(),
+	)
+	songList.SetBorder(true)
+
+	for _, album := range albums {
+		libTable.AppendRow(
+			tui.NewLabel(album.Title),
+		)
+	}
+
+	libTable.OnSelectionChanged(func(t *tui.Table) {
+		list.RemoveItems()
+		for _, v := range albums[libTable.Selected()].Songs {
+			list.AddItems(v)
+		}
+		list.SetFocused(true)
+	})
+
+	progress := tui.NewProgress(100)
+	progress.SetCurrent(0)
+
+	status := tui.NewStatusBar("Song Title + Time")
+	status.SetPermanentText("Volume")
+
+	selection := tui.NewHBox(
+		library,
+		songList,
+		tui.NewSpacer(),
+	)
+
+	root := tui.NewVBox(
+		selection,
+		progress,
+		status,
+		tui.NewSpacer(),
+	)
+
+	ui := tui.New(root)
+	ui.SetKeybinding(tui.KeyEsc, func() { ui.Quit() })
+	ui.SetKeybinding('q', func() { ui.Quit() })
+	ui.SetKeybinding(tui.KeySpace, func() { status.SetText("Play") })
+	// ui.SetKeybinding(tui.KeyArrowRight, func() { list.SetFocused(true); library.SetFocused(false) })
+	// ui.SetKeybinding(tui.KeyArrowLeft, func() { list.SetFocused(false); library.SetFocused(true) })
+	if err := ui.Run(); err != nil {
+		panic(err)
+	}
 }
 
 func CollectAlbums(root string) ([]*Album, error) {

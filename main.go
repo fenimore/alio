@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	vlc "github.com/adrg/libvlc-go"
 	"github.com/fsnotify/fsnotify"
 	"github.com/marcusolsson/tui-go"
 	"io/ioutil"
@@ -30,10 +31,27 @@ func (a *Album) String() string {
 
 func main() {
 	fmt.Println("Welcome")
+	// Collect Albums from FileSystem root Music
 	albums, err := CollectAlbums(DIR)
 	if err != nil {
 		panic(err)
 	}
+
+	// Set Up vlc connection
+	err = vlc.Init("--no-video", "--quiet")
+	if err != nil {
+		panic(err)
+	}
+	player, err := vlc.NewPlayer()
+	if err != nil {
+		fmt.Printf("VLC init Error: [%s]\nAre you using libvlc 2.x?\n", err)
+		panic(err)
+	}
+	defer func() {
+		vlc.Release()
+		player.Stop()
+		player.Release()
+	}()
 
 	libTable := tui.NewTable(0, 1)
 	libTable.SetColumnStretch(0, 1)
@@ -99,12 +117,16 @@ func main() {
 	ui.SetKeybinding('q', func() { ui.Quit() })
 	ui.SetKeybinding(tui.KeySpace, func() { status.SetText("Play") })
 	ui.SetKeybinding(tui.KeyEnter, func() {
+		fmt.Println("Whats it do ")
 		s := libTable.Selected() - 1
 		if s == -1 {
 			return
 		}
 
-		go playAlbum(albums[s])
+		err = playAlbum(player, albums[s], status)
+		if err != nil {
+			panic(err)
+		}
 	})
 
 	if err := ui.Run(); err != nil {
@@ -112,7 +134,18 @@ func main() {
 	}
 }
 
-func playAlbum(album *Album) {
+func playAlbum(p *vlc.Player, a *Album, s *tui.StatusBar) error {
+	s.SetText(a.Title)
+	err := p.SetMedia(a.Paths[0], true)
+	if err != nil {
+		return err
+	}
+	err = p.Play()
+	if err != nil {
+		return err
+	}
+
+	return nil
 
 }
 

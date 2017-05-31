@@ -2,14 +2,13 @@ package main
 
 import (
 	"fmt"
-	vlc "github.com/adrg/libvlc-go"
-	"github.com/fsnotify/fsnotify"
-	"github.com/marcusolsson/tui-go"
+	vlc "github.com/fenimore/libvlc-go"
+	"github.com/nsf/termbox-go"
 	"io/ioutil"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 )
 
@@ -42,7 +41,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	player, err := vlc.NewPlayer()
+	player, err := vlc.NewListPlayer()
 	if err != nil {
 		fmt.Printf("VLC init Error: [%s]\nAre you using libvlc 2.x?\n", err)
 		panic(err)
@@ -53,100 +52,73 @@ func main() {
 		player.Release()
 	}()
 
-	libTable := tui.NewTable(0, 1)
-	libTable.SetColumnStretch(0, 1)
+	// Set up UI
+	err = termbox.Init()
+	if err != nil {
+		panic(err)
+	}
+	defer termbox.Close()
 
-	library := tui.NewVBox(
-		tui.NewLabel("Albums"),
-		libTable,
-		tui.NewSpacer(),
-	)
-	library.SetBorder(true)
+	// Keybindings
+	events := make(chan termbox.Event)
+	go func() {
+		for {
+			events <- termbox.PollEvent()
+		}
+	}()
 
-	list := tui.NewList()
-	songList := tui.NewVBox(
-		tui.NewLabel("Songs"),
-		list,
-		tui.NewSpacer(),
-	)
-	songList.SetBorder(true)
+	termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
+	tbprint(0, 0, termbox.ColorMagenta, termbox.ColorDefault, "Wooto")
+	tbprint(0, 1, termbox.ColorMagenta, termbox.ColorDefault, "Wooto")
+	// render
+	for _, _ = range albums {
 
-	for _, album := range albums {
-		libTable.AppendRow(
-			tui.NewLabel(album.Title),
-		)
+	}
+	for {
+		ev := <-events
+		if ev.Key == termbox.KeyCtrlN {
+			log.Println("Events")
+		} else if ev.Key == termbox.KeyEsc {
+			return
+		}
 	}
 
-	progress := tui.NewProgress(100)
-	progress.SetCurrent(0)
+}
 
-	status := tui.NewStatusBar("Song Title + Time")
-	status.SetText(strconv.Itoa(libTable.Selected()))
-	status.SetPermanentText("Volume")
-
-	libTable.OnSelectionChanged(func(t *tui.Table) {
-		if libTable.Selected() == 0 {
-			return
-		}
-		progress.SetCurrent(libTable.Selected() * 10)
-		status.SetText(strconv.Itoa(libTable.Selected()))
-		list.RemoveItems()
-
-		for _, v := range albums[libTable.Selected()-1].Songs {
-			list.AddItems(v)
-		}
-	})
-
-	selection := tui.NewHBox(
-		library,
-		songList,
-		tui.NewSpacer(),
-	)
-
-	root := tui.NewVBox(
-		selection,
-		progress,
-		status,
-		tui.NewSpacer(),
-	)
-
-	ui := tui.New(root)
-
-	// Key bindings
-	ui.SetKeybinding(tui.KeyEsc, func() { ui.Quit() })
-	ui.SetKeybinding('q', func() { ui.Quit() })
-	ui.SetKeybinding(tui.KeySpace, func() { status.SetText("Play") })
-	ui.SetKeybinding(tui.KeyEnter, func() {
-		fmt.Println("Whats it do ")
-		s := libTable.Selected() - 1
-		if s == -1 {
-			return
-		}
-
-		err = playAlbum(player, albums[s], status)
-		if err != nil {
-			panic(err)
-		}
-	})
-
-	if err := ui.Run(); err != nil {
-		panic(err)
+// Function tbprint draws a string.
+func tbprint(x, y int, fg, bg termbox.Attribute, msg string) {
+	for _, c := range msg {
+		termbox.SetCell(x, y, c, fg, bg)
+		x++
 	}
 }
 
-func playAlbum(p *vlc.Player, a *Album, s *tui.StatusBar) error {
-	s.SetText(a.Title)
-	err := p.SetMedia(a.Paths[0], true)
+func playAlbum(p *vlc.ListPlayer, a *Album) error {
+	list, err := vlc.NewMediaList()
 	if err != nil {
 		return err
 	}
+
+	for _, path := range a.Paths {
+		media, err := vlc.NewMediaFromPath(path)
+		if err != nil {
+			return err
+		}
+
+		err = list.AddMedia(media)
+		if err != nil {
+			return err
+		}
+
+	}
+
+	err = p.SetMediaList(list)
+	if err != nil {
+		return err
+	}
+
 	err = p.Play()
-	if err != nil {
-		return err
-	}
-
-	return nil
-
+	return err
 }
 
 func CollectAlbums(root string) ([]*Album, error) {
@@ -201,31 +173,4 @@ func CollectAlbums(root string) ([]*Album, error) {
 	}
 
 	return albums, nil
-}
-
-// WatchFiles watches for changes to filesystem in directory.
-func WatchFiles(dir string, errChan chan<- error) (*fsnotify.Watcher, error) {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return watcher, err
-	}
-
-	go func() {
-		for {
-			select {
-			case ev := <-watcher.Events:
-				if ev.Op == fsnotify.Write { // FIXME: use Create instead?
-					// do something
-				}
-			case _ = <-watcher.Errors:
-				errChan <- err
-			}
-		}
-	}()
-	err = watcher.Add(dir)
-	if err != nil {
-		return watcher, err
-	}
-
-	return watcher, nil
 }

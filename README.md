@@ -1,6 +1,6 @@
 # Alio
 
-Depends on `libvlc 2.X`.
+Depends on `libvlc 2.X` for building (but the release should be compiled with the libvlc).
 
 ## TODO:
 

@@ -224,7 +224,8 @@ func CollectAlbums(root string) ([]*Album, error) {
 
 		if len(songs) > 0 {
 			for i, v := range songs {
-				album.Songs = append(album.Songs, songs[i])
+				song := strings.TrimSuffix(songs[i], filepath.Ext(songs[i]))
+				album.Songs = append(album.Songs, song)
 				album.Paths = append(album.Paths, path.Join(val, v))
 			}
 		}

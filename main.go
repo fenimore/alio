@@ -2,10 +2,10 @@ package main
 
 import (
 	"fmt"
-	vlc "github.com/fenimore/libvlc-go"
-	"github.com/nsf/termbox-go"
+	vlc "github.com/adrg/libvlc-go"
+	"github.com/marcusolsson/tui-go"
 	"io/ioutil"
-	"log"
+	_ "log"
 	"os"
 	"path"
 	"path/filepath"
@@ -29,7 +29,6 @@ func (a *Album) String() string {
 }
 
 func main() {
-	fmt.Println("Welcome")
 	// Collect Albums from FileSystem root Music
 	albums, err := CollectAlbums(DIR)
 	if err != nil {
@@ -53,47 +52,114 @@ func main() {
 	}()
 
 	// Set up UI
-	err = termbox.Init()
-	if err != nil {
-		panic(err)
+	libTable := tui.NewTable(0, 1)
+	libTable.SetColumnStretch(0, 1)
+
+	library := tui.NewVBox(
+		tui.NewLabel("Albums"),
+		libTable,
+		tui.NewSpacer(),
+	)
+	library.SetBorder(true)
+
+	list := tui.NewList()
+	songList := tui.NewVBox(
+		tui.NewLabel("Songs"),
+		list,
+		tui.NewSpacer(),
+	)
+	songList.SetBorder(true)
+
+	for _, album := range albums {
+		libTable.AppendRow(
+			tui.NewLabel(album.Title),
+		)
 	}
-	defer termbox.Close()
 
-	// Keybindings
-	events := make(chan termbox.Event)
-	go func() {
-		for {
-			events <- termbox.PollEvent()
-		}
-	}()
+	progress := tui.NewProgress(100)
+	progress.SetCurrent(0)
 
-	termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
-	tbprint(0, 0, termbox.ColorMagenta, termbox.ColorDefault, "Wooto")
-	tbprint(0, 1, termbox.ColorMagenta, termbox.ColorDefault, "Wooto")
-	// render
-	for _, _ = range albums {
+	status := tui.NewStatusBar("Song Title + Time")
+	status.SetPermanentText("Volume")
 
-	}
-	for {
-		ev := <-events
-		if ev.Key == termbox.KeyCtrlN {
-			log.Println("Events")
-		} else if ev.Key == termbox.KeyEsc {
+	libTable.OnSelectionChanged(func(t *tui.Table) {
+		if libTable.Selected() == 0 {
 			return
 		}
-	}
+		progress.SetCurrent(libTable.Selected() * 5)
+		list.RemoveItems()
 
+		for _, v := range albums[libTable.Selected()-1].Songs {
+			list.AddItems(v)
+		}
+	})
+
+	//go func() {
+	// if player.IsPlaying()
+	// TODO: Update progress.SetCurrent()
+	//}()
+
+	selection := tui.NewHBox(
+		library,
+		songList,
+		tui.NewSpacer(),
+	)
+
+	root := tui.NewVBox(
+		selection,
+		progress,
+		status,
+		tui.NewSpacer(),
+	)
+
+	ui := tui.New(root)
+
+	// move the cursor to the first album
+	libTable.Select(1)
+
+	// Key bindings
+	ui.SetKeybinding("q", func() { ui.Quit() })
+	ui.SetKeybinding("Esc", func() { ui.Quit() })
+	ui.SetKeybinding("Ctrl+c", func() { ui.Quit() })
+	ui.SetKeybinding("Ctrl+n", func() {
+		if libTable.Selected() == len(albums) {
+			return
+		}
+		libTable.Select(libTable.Selected() + 1)
+	})
+	ui.SetKeybinding("Ctrl+p", func() {
+		if libTable.Selected() == 1 {
+			return
+		}
+		libTable.Select(libTable.Selected() - 1)
+	})
+
+	play := func() {
+		s := libTable.Selected() - 1
+		if s == -1 {
+			return
+		}
+
+		err = playAlbum(player, albums[s])
+		if err != nil {
+			panic(err)
+		}
+		// fmt.Println("Playing: ", albums[s].Title)
+	}
+	// TODO: Add bindings for next and prev song.
+	ui.SetKeybinding("Enter", play)
+	ui.SetKeybinding("Space", play)
+
+	if err := ui.Run(); err != nil {
+		panic(err)
+	}
+	fmt.Println("Adios from Alio Music Player!")
 }
 
-// Function tbprint draws a string.
-func tbprint(x, y int, fg, bg termbox.Attribute, msg string) {
-	for _, c := range msg {
-		termbox.SetCell(x, y, c, fg, bg)
-		x++
+func playAlbum(p *vlc.ListPlayer, a *Album) (err error) {
+	if p.IsPlaying() {
+		p.Stop()
 	}
-}
-
-func playAlbum(p *vlc.ListPlayer, a *Album) error {
 	list, err := vlc.NewMediaList()
 	if err != nil {
 		return err
@@ -109,7 +175,6 @@ func playAlbum(p *vlc.ListPlayer, a *Album) error {
 		if err != nil {
 			return err
 		}
-
 	}
 
 	err = p.SetMediaList(list)
@@ -144,7 +209,6 @@ func CollectAlbums(root string) ([]*Album, error) {
 		}
 
 		for _, info := range files {
-			//fmt.Println(info.Name())
 			if info.IsDir() || info.Name()[0] == '.' {
 				continue
 			}
@@ -166,7 +230,7 @@ func CollectAlbums(root string) ([]*Album, error) {
 		}
 
 		if len(album.Songs) > 0 {
-			album.Title = val
+			album.Title = filepath.Base(val)
 			album.Count = len(songs)
 			albums = append(albums, album)
 		}

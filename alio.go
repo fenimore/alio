@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	vlc "github.com/fenimore/libvlc-go"
+	vlc "github.com/adrg/libvlc-go"
 	"github.com/marcusolsson/tui-go"
 	"io/ioutil"
 	_ "log"
@@ -182,23 +182,23 @@ or use -d flag to designate directory name
 			panic(err)
 		}
 	}
-	// TODO: Add bindings for next and prev song.
+
 	ui.SetKeybinding("Enter", play)
 	ui.SetKeybinding("Tab", play)
 	ui.SetKeybinding("p", func() {
-		err = player.Pause()
+		err = player.TogglePause()
 		if err != nil {
 			panic(err)
 		}
 	})
 	next := func() {
-		err = player.Next()
+		err = player.PlayNext()
 		if err != nil {
 			panic(err)
 		}
 	}
 	prev := func() {
-		err = player.Previous()
+		err = player.PlayPrevious()
 		if err != nil {
 			panic(err)
 		}

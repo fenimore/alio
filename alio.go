@@ -1,8 +1,9 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	vlc "github.com/adrg/libvlc-go"
+	vlc "github.com/fenimore/libvlc-go"
 	"github.com/marcusolsson/tui-go"
 	"io/ioutil"
 	_ "log"
@@ -13,7 +14,7 @@ import (
 )
 
 var DIR = "Music"
-var MusicExts = ".mp3 .ogg .m4a"
+var MusicExts = ".mp3 .ogg .m4a .flac"
 var PhotoExts = ".jpg .jpeg .png"
 
 type Album struct {
@@ -29,10 +30,42 @@ func (a *Album) String() string {
 }
 
 func main() {
+	flag.Usage = func() {
+		fmt.Println(`
+	   _ _
+     /\   | (_)
+    /  \  | |_  ___
+   / /\ \ | | |/ _ \
+  / ____ \| | | (_) |
+ /_/    \_\_|_|\___/
+
+Commandline album player!
+
+Keybinding:
+Quit: q, Ctrl-c, Esc
+Move down: Ctrl-n, j
+Move up: Ctrl-p, k
+Play album: Enter, Tab
+Pause: p (coming soon: Space)
+Next Song: Right arrow, Ctrl-f
+Previous Song: Left arrow, Ctrl-b
+
+Launch application in pwd of a Music/ directory
+or use -d flag to designate directory name
+`)
+		flag.PrintDefaults()
+		os.Exit(0)
+	}
+	DIR = *flag.String("d", "Music", "default music collection directory")
+	flag.Parse()
 	// Collect Albums from FileSystem root Music
 	albums, err := CollectAlbums(DIR)
 	if err != nil {
 		panic(err)
+	}
+
+	if len(albums) < 1 {
+		flag.Usage()
 	}
 
 	// Set Up vlc connection
@@ -121,19 +154,23 @@ func main() {
 	ui.SetKeybinding("q", func() { ui.Quit() })
 	ui.SetKeybinding("Esc", func() { ui.Quit() })
 	ui.SetKeybinding("Ctrl+c", func() { ui.Quit() })
-	ui.SetKeybinding("Ctrl+n", func() {
+	// navigation
+	down := func() {
 		if libTable.Selected() == len(albums) {
 			return
 		}
 		libTable.Select(libTable.Selected() + 1)
-	})
-	ui.SetKeybinding("Ctrl+p", func() {
+	}
+	up := func() {
 		if libTable.Selected() == 1 {
 			return
 		}
 		libTable.Select(libTable.Selected() - 1)
-	})
-
+	}
+	ui.SetKeybinding("Ctrl+n", down)
+	ui.SetKeybinding("j", down)
+	ui.SetKeybinding("Ctrl+p", up)
+	// ui.SetKeybinding("k", up)
 	play := func() {
 		s := libTable.Selected() - 1
 		if s == -1 {
@@ -144,11 +181,32 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		// fmt.Println("Playing: ", albums[s].Title)
 	}
 	// TODO: Add bindings for next and prev song.
 	ui.SetKeybinding("Enter", play)
-	ui.SetKeybinding("Space", play)
+	ui.SetKeybinding("Tab", play)
+	ui.SetKeybinding("p", func() {
+		err = player.Pause()
+		if err != nil {
+			panic(err)
+		}
+	})
+	next := func() {
+		err = player.Next()
+		if err != nil {
+			panic(err)
+		}
+	}
+	prev := func() {
+		err = player.Previous()
+		if err != nil {
+			panic(err)
+		}
+	}
+	ui.SetKeybinding("Right", next)
+	ui.SetKeybinding("Ctrl-f", next)
+	ui.SetKeybinding("Left", prev)
+	ui.SetKeybinding("Ctrl-b", prev)
 
 	if err := ui.Run(); err != nil {
 		panic(err)

@@ -11,11 +11,14 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 var DIR = "Music"
 var MusicExts = ".mp3 .ogg .m4a .flac"
 var PhotoExts = ".jpg .jpeg .png"
+
+var ui tui.UI
 
 type Album struct {
 	Title string
@@ -73,7 +76,7 @@ or use -d flag to designate directory name
 	if err != nil {
 		panic(err)
 	}
-	player, err := vlc.NewListPlayer()
+	player, err := vlc.NewPlayer()
 	if err != nil {
 		fmt.Printf("VLC init Error: [%s]\nAre you using libvlc 2.x?\n", err)
 		panic(err)
@@ -119,18 +122,11 @@ or use -d flag to designate directory name
 		if libTable.Selected() == 0 {
 			return
 		}
-		progress.SetCurrent(libTable.Selected() * 5)
 		list.RemoveItems()
-
 		for _, v := range albums[libTable.Selected()-1].Songs {
 			list.AddItems(v)
 		}
 	})
-
-	//go func() {
-	// if player.IsPlaying()
-	// TODO: Update progress.SetCurrent()
-	//}()
 
 	selection := tui.NewHBox(
 		library,
@@ -140,12 +136,13 @@ or use -d flag to designate directory name
 
 	root := tui.NewVBox(
 		selection,
+		tui.NewSpacer(),
 		progress,
 		status,
 		tui.NewSpacer(),
 	)
 
-	ui := tui.New(root)
+	ui = tui.New(root)
 
 	// move the cursor to the first album
 	libTable.Select(1)
@@ -177,10 +174,12 @@ or use -d flag to designate directory name
 			return
 		}
 
-		err = playAlbum(player, albums[s])
-		if err != nil {
-			panic(err)
-		}
+		go func() {
+			err = playAlbum(player, albums[s], list)
+			if err != nil {
+				panic(err)
+			}
+		}()
 	}
 
 	ui.SetKeybinding("Enter", play)
@@ -191,14 +190,16 @@ or use -d flag to designate directory name
 			panic(err)
 		}
 	})
+
 	next := func() {
-		err = player.PlayNext()
+		err = player.Stop()
 		if err != nil {
 			panic(err)
 		}
 	}
 	prev := func() {
-		err = player.PlayPrevious()
+		//TODO:
+		//err = player.PlayPrevious()
 		if err != nil {
 			panic(err)
 		}
@@ -208,39 +209,68 @@ or use -d flag to designate directory name
 	ui.SetKeybinding("Left", prev)
 	ui.SetKeybinding("Ctrl-b", prev)
 
+	// update goroutine // TODO: must end?
+	go func() {
+		for {
+			time.Sleep(500 * time.Millisecond)
+			if player.IsPlaying() {
+				length, err := player.MediaLength()
+				if err != nil {
+					panic(err)
+				}
+
+				position, err := player.MediaPosition()
+				if err != nil {
+					panic(err)
+				}
+				ui.Update(func() {
+					progress.SetCurrent(int(position * 100))
+					status.SetText(fmt.Sprintf("%d / %d", length/60, length%60))
+				})
+			}
+		}
+	}()
+
 	if err := ui.Run(); err != nil {
 		panic(err)
 	}
 	fmt.Println("Adios from Alio Music Player!")
 }
 
-func playAlbum(p *vlc.ListPlayer, a *Album) (err error) {
+func playAlbum(p *vlc.Player, a *Album, l *tui.List) (err error) {
 	if p.IsPlaying() {
 		p.Stop()
 	}
-	list, err := vlc.NewMediaList()
-	if err != nil {
-		return err
-	}
 
+	list := make([]*vlc.Media, 0)
 	for _, path := range a.Paths {
 		media, err := vlc.NewMediaFromPath(path)
 		if err != nil {
 			return err
 		}
+		list = append(list, media)
+	}
 
-		err = list.AddMedia(media)
+	for idx := range list {
+		ui.Update(func() {
+			l.SetSelected(idx)
+		})
+		p.SetMedia(list[idx])
+		err = p.Play()
+		status, err := p.MediaState()
 		if err != nil {
 			return err
 		}
+
+		for status != vlc.MediaEnded && status != vlc.MediaStopped {
+			time.Sleep(50 * time.Millisecond)
+			status, err = p.MediaState()
+			if err != nil {
+				return err
+			}
+		}
 	}
 
-	err = p.SetMediaList(list)
-	if err != nil {
-		return err
-	}
-
-	err = p.Play()
 	return err
 }
 

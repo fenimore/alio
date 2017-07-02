@@ -20,7 +20,16 @@ var MusicExts = ".mp3 .ogg .m4a .flac"
 var PhotoExts = ".jpg .jpeg .png"
 
 var ui tui.UI
-var lock *sync.Mutex
+var wg *sync.WaitGroup
+
+type Task int
+
+const (
+	Pause Task = iota
+	Play
+	Next
+	Prev
+)
 
 type Album struct {
 	Title string
@@ -63,12 +72,13 @@ or use -d flag to designate directory name
 	}
 	DIR = *flag.String("d", "Music", "default music collection directory")
 	flag.Parse()
-	lock = new(sync.Mutex)
 	// Collect Albums from FileSystem root Music
 	albums, err := CollectAlbums(DIR)
 	if err != nil {
 		panic(err)
 	}
+
+	wg = new(sync.WaitGroup)
 
 	if len(albums) < 1 {
 		flag.Usage()
@@ -150,10 +160,6 @@ or use -d flag to designate directory name
 	// move the cursor to the first album
 	libTable.Select(1)
 
-	// Key bindings
-	ui.SetKeybinding("q", func() { ui.Quit() })
-	ui.SetKeybinding("Esc", func() { ui.Quit() })
-	ui.SetKeybinding("Ctrl+c", func() { ui.Quit() })
 	// navigation
 	down := func() {
 		if libTable.Selected() == len(albums) {
@@ -167,33 +173,32 @@ or use -d flag to designate directory name
 		}
 		libTable.Select(libTable.Selected() - 1)
 	}
-	ui.SetKeybinding("Ctrl+n", down)
-	ui.SetKeybinding("j", down)
-	ui.SetKeybinding("Ctrl+p", up)
-	// ui.SetKeybinding("k", up)
 	play := func() {
 		s := libTable.Selected() - 1
 		if s == -1 {
 			return
 		}
+		if player.IsPlaying() {
+			err = player.Stop()
+			if err != nil {
+				panic(err)
+			}
+		}
 
 		go func() {
-			err = playAlbum(player, albums[s], list)
+			err = playAlbum(player, albums[s], list, status)
 			if err != nil {
-				panic("Album " + err.Error())
+				println("Album " + err.Error())
 			}
 		}()
 	}
 
-	ui.SetKeybinding("Enter", play)
-	ui.SetKeybinding("Tab", play)
-	ui.SetKeybinding("p", func() {
+	pause := func() {
 		err = player.TogglePause()
 		if err != nil {
 			panic("Pause " + err.Error())
 		}
-	})
-
+	}
 	next := func() {
 		// err = player.Stop()
 		// if err != nil {
@@ -207,6 +212,20 @@ or use -d flag to designate directory name
 		//panic(err)
 		//}
 	}
+	// Key bindings
+	ui.SetKeybinding("q", func() { ui.Quit() })
+	ui.SetKeybinding("Esc", func() { ui.Quit() })
+	ui.SetKeybinding("Ctrl+c", func() { ui.Quit() })
+
+	ui.SetKeybinding("Ctrl+n", down)
+	ui.SetKeybinding("j", down)
+	ui.SetKeybinding("Ctrl+p", up)
+	ui.SetKeybinding("k", up)
+
+	ui.SetKeybinding("Enter", play)
+	ui.SetKeybinding("Tab", play)
+	ui.SetKeybinding("p", pause)
+
 	ui.SetKeybinding("Right", next)
 	ui.SetKeybinding("Ctrl-F", next)
 	ui.SetKeybinding("Left", prev)
@@ -215,58 +234,24 @@ or use -d flag to designate directory name
 	// update goroutine // TODO: must end?
 	go func() {
 		for {
-			time.Sleep(10 * time.Millisecond)
-			lock.Lock()
+			time.Sleep(40 * time.Millisecond)
 			if player.IsPlaying() {
-
 				length, err := player.MediaLength()
 				if err != nil {
-					continue
-					panic("Length" + err.Error())
+					//panic("Length" + err.Error())
 				}
 
 				position, err := player.MediaPosition()
 				if err != nil {
-					panic("Media Position" + err.Error())
+					//panic("Media Position" + err.Error())
 				}
 				ui.Update(func() {
 					progress.SetCurrent(int(position * 1000))
 					// position is a float between 0 and 1
 					time.Sleep(time.Millisecond * 50)
-					r := float32(length) * position
-					d := int(r / 1000)
-					seconds := d % 60
-					minutes := int(d / 60)
-					hours := int(minutes / 60)
-					duration := fmt.Sprintf(
-						"%d:%d:%d",
-						hours,
-						minutes,
-						seconds,
-					)
-					d = int(length / 1000)
-					seconds = d % 60
-					minutes = int(d / 60)
-					hours = int(minutes / 60)
-					total := fmt.Sprintf(
-						"%d:%d:%d",
-						hours,
-						minutes,
-						seconds,
-					)
-					status.SetText(
-						fmt.Sprintf(`
-%s - %s   --%s
-`,
-							duration,
-							total,
-							albums[libTable.Selected()].Title,
-						),
-					)
-
+					status.SetText(timestamp(position, length))
 				})
 			}
-			lock.Unlock()
 		}
 	}()
 
@@ -276,41 +261,51 @@ or use -d flag to designate directory name
 	fmt.Println("Adios from Alio Music Player!")
 }
 
-func playAlbum(p *vlc.Player, a *Album, l *tui.List) (err error) {
-	if p.IsPlaying() {
-		p.Stop()
-	}
-
-	list := make([]*vlc.Media, 0)
+// in its own goroutine...
+func playAlbum(p *vlc.Player, a *Album, l *tui.List, s *tui.StatusBar) (err error) {
+	playlist := make([]*vlc.Media, 0)
 	for _, path := range a.Paths {
 		media, err := vlc.NewMediaFromPath(path)
 		if err != nil {
 			return err
 		}
-		list = append(list, media)
+		playlist = append(playlist, media)
 	}
 
-	for idx := range list {
-		ui.Update(func() {
-			l.SetSelected(idx)
-		})
-		p.SetMedia(list[idx])
+PlayLoop:
+	for idx := range playlist {
+		p.SetMedia(playlist[idx])
 		err = p.Play()
 		if err != nil {
 			return err
 		}
 
+		playing := map[vlc.MediaState]bool{
+			vlc.MediaIdle:      true,
+			vlc.MediaOpening:   true,
+			vlc.MediaBuffering: true,
+			vlc.MediaPaused:    true,
+			vlc.MediaPlaying:   true,
+			vlc.MediaStopped:   false,
+			vlc.MediaEnded:     false,
+		}
 		status, err := p.MediaState()
 		if err != nil {
 			return err
 		}
-
-		for status != vlc.MediaEnded && status != vlc.MediaStopped {
-			time.Sleep(50 * time.Millisecond)
+		for playing[status] {
 			status, err = p.MediaState()
 			if err != nil {
-				return err
+				break PlayLoop
 			}
+			ui.Update(func() {
+				song := songStatus(*a, l.Selected())
+				if song != "" {
+					s.SetPermanentText(song)
+				}
+				l.SetSelected(idx)
+			})
+			time.Sleep(50 * time.Millisecond)
 		}
 	}
 
@@ -369,4 +364,45 @@ func CollectAlbums(root string) ([]*Album, error) {
 	}
 
 	return albums, nil
+}
+
+func timestamp(pos float32, length int) string {
+	r := float32(length) * pos
+	d := int(r / 1000)
+	seconds := d % 60
+	minutes := int(d/60) % 60
+	hours := int(minutes / 60)
+	duration := fmt.Sprintf(
+		"%02d:%02d:%02d",
+		hours,
+		minutes,
+		seconds,
+	)
+	d = int(length / 1000)
+	seconds = d % 60
+	minutes = int(d/60) % 60
+	hours = int(minutes / 60)
+
+	total := fmt.Sprintf(
+		"%02d:%02d:%02d",
+		hours,
+		minutes,
+		seconds,
+	)
+	return fmt.Sprintf(`    %s - %s`,
+		duration,
+		total,
+	)
+}
+
+// song index and album index, for UI
+func songStatus(a Album, idx int) string {
+	if idx == -1 {
+		return ""
+	}
+
+	return fmt.Sprintf("%s / %s    ",
+		a.Title,
+		a.Songs[idx],
+	)
 }

@@ -3,9 +3,9 @@
 Depends on `libvlc 2.X` for building (but the release should be compiled with the libvlc).
 
 ```
-       _ _
-     /\   | (_)
-    /  \  | |_  ___
+         _   _
+     /\ | | (_)
+    /  \| |  _  ___
    / /\ \ | | |/ _ \
   / ____ \| | | (_) |
  /_/    \_\_|_|\___/

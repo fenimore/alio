@@ -37,6 +37,7 @@ type Album struct {
 	Paths []string
 	Cover string
 	Count int
+	Index int
 }
 
 func (a *Album) String() string {
@@ -70,7 +71,8 @@ or use -d flag to designate directory name
 		flag.PrintDefaults()
 		os.Exit(0)
 	}
-	DIR = *flag.String("d", "Music", "default music collection directory")
+	DIR = *flag.String("d", "Music",
+		"default music collection directory")
 	flag.Parse()
 	// Collect Albums from FileSystem root Music
 	albums, err := CollectAlbums(DIR)
@@ -102,22 +104,26 @@ or use -d flag to designate directory name
 
 	// Set up UI
 	libTable := tui.NewTable(0, 1)
-	libTable.SetColumnStretch(0, 1)
+	libTable.SetColumnStretch(0, 0)
 
+	aLabel := tui.NewLabel("Albums")
+	sLabel := tui.NewLabel("Songs")
+	aLabel.SetStyleName("album")
+	sLabel.SetStyleName("album")
 	library := tui.NewVBox(
-		tui.NewLabel("Albums"),
+		aLabel,
 		libTable,
 		tui.NewSpacer(),
 	)
-	library.SetBorder(true)
+	library.SetBorder(false)
 
 	list := tui.NewList()
 	songList := tui.NewVBox(
-		tui.NewLabel("Songs"),
+		sLabel,
 		list,
 		tui.NewSpacer(),
 	)
-	songList.SetBorder(true)
+	songList.SetBorder(false)
 
 	for _, album := range albums {
 		libTable.AppendRow(
@@ -143,13 +149,11 @@ or use -d flag to designate directory name
 
 	selection := tui.NewHBox(
 		library,
-		songList,
-		tui.NewSpacer(),
+		tui.NewPadder(1, 0, songList),
 	)
 
 	root := tui.NewVBox(
 		selection,
-		tui.NewSpacer(),
 		progress,
 		status,
 		tui.NewSpacer(),
@@ -173,7 +177,7 @@ or use -d flag to designate directory name
 		}
 		libTable.Select(libTable.Selected() - 1)
 	}
-	//ctx, cancel := context.WithCancel(context.Background())
+
 	done := make(chan struct{}, 128)
 	forward := make(chan struct{}, 128)
 	previous := make(chan struct{}, 128)
@@ -187,23 +191,20 @@ or use -d flag to designate directory name
 		if player.IsPlaying() {
 			err = player.Stop()
 			// TODO: handle error?
-			// if err != nil {
-			//	panic("Stop" + err.Error())
-			// }
 			done <- struct{}{}
 		}
 		go func() {
 			wg.Wait()
 			wg.Add(1)
 			err = playAlbum(
-				done,
 				player,
 				*albums[s],
 				list,
+				libTable,
 				status,
+				done,
 				forward,
 				previous,
-				0,
 			)
 			wg.Done()
 			// do nothing with the error
@@ -223,12 +224,7 @@ or use -d flag to designate directory name
 	ui.SetKeybinding("Ctrl+c", func() { ui.Quit() })
 
 	ui.SetKeybinding("Ctrl+n", down)
-	ui.SetKeybinding("j", down)
 	ui.SetKeybinding("Ctrl+p", up)
-	ui.SetKeybinding("k", func() {
-		up()
-		fmt.Println("K")
-	})
 
 	ui.SetKeybinding("Enter", play)
 	ui.SetKeybinding("Tab", play)
@@ -254,6 +250,7 @@ or use -d flag to designate directory name
 				if err != nil {
 					continue
 				}
+
 				ui.Update(func() {
 					progress.SetCurrent(int(position * 1000))
 					// position is a float between 0 and 1
@@ -264,6 +261,25 @@ or use -d flag to designate directory name
 		}
 	}()
 
+	// Theme
+	theme := tui.NewTheme()
+	theme.SetStyle("table.cell", tui.Style{
+		Fg: tui.ColorCyan,
+	})
+	theme.SetStyle("table.cell.selected", tui.Style{
+		Bg: tui.ColorCyan, Fg: tui.ColorWhite,
+	})
+	theme.SetStyle("list.item", tui.Style{
+		Fg: tui.ColorGreen,
+	})
+	theme.SetStyle("list.item.selected", tui.Style{
+		Bg: tui.ColorGreen, Fg: tui.ColorWhite,
+	})
+	theme.SetStyle("label.album", tui.Style{
+		Bg: tui.ColorDefault, Fg: tui.ColorYellow,
+	})
+	ui.SetTheme(theme) // TODO: Add flag for no theme
+
 	if err := ui.Run(); err != nil {
 		panic("Run " + err.Error())
 	}
@@ -271,7 +287,7 @@ or use -d flag to designate directory name
 }
 
 // in its own goroutine...
-func playAlbum(done chan struct{}, p *vlc.Player, a Album, l *tui.List, s *tui.StatusBar, next, prev chan struct{}, first int) (err error) {
+func playAlbum(p *vlc.Player, a Album, l *tui.List, t *tui.Table, s *tui.StatusBar, done, next, prev chan struct{}) (err error) {
 	playlist := make([]*vlc.Media, 0)
 	for _, path := range a.Paths {
 		media, err := vlc.NewMediaFromPath(path)
@@ -281,7 +297,7 @@ func playAlbum(done chan struct{}, p *vlc.Player, a Album, l *tui.List, s *tui.S
 		playlist = append(playlist, media)
 	}
 
-	for idx := range playlist[first:] {
+	for idx := range playlist {
 		p.SetMedia(playlist[idx])
 		err = p.Play()
 		if err != nil {
@@ -295,24 +311,24 @@ func playAlbum(done chan struct{}, p *vlc.Player, a Album, l *tui.List, s *tui.S
 	PlaybackLoop:
 		for status != vlc.MediaEnded {
 			status, err = p.MediaState()
-			// handle err?
-			ui.Update(func() {
-				song := songStatus(a, l.Selected())
-				if song != "" {
-					s.SetPermanentText(song)
-				}
+			// don't handle err
+			song := songStatus(a, l.Selected())
+			if song != "" {
+				s.SetPermanentText(song)
+			}
+
+			if t.Selected() == a.Index {
 				l.SetSelected(idx)
-			})
+			} else {
+				l.SetSelected(-1)
+			}
 			select {
 			case <-done:
 				return err
 			case <-next:
 				break PlaybackLoop
 			case <-prev:
-				if idx < 1 {
-					continue
-				}
-				return playAlbum(done, p, a, l, s, next, prev, idx-1)
+				continue // TODO: implement previous
 			default:
 				time.Sleep(50 * time.Millisecond)
 			}
@@ -369,6 +385,7 @@ func CollectAlbums(root string) ([]*Album, error) {
 		if len(album.Songs) > 0 {
 			album.Title = filepath.Base(val)
 			album.Count = len(songs)
+			album.Index = len(albums) + 1
 			albums = append(albums, album)
 		}
 	}

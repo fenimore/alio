@@ -128,8 +128,8 @@ or use -d flag to designate directory name
 	progress := tui.NewProgress(1000)
 	progress.SetCurrent(0)
 
-	status := tui.NewStatusBar(albums[libTable.Selected()].Title)
-	status.SetText(albums[libTable.Selected()].Title)
+	status := tui.NewStatusBar(`		คɭเ๏ :: {} ς๏ɭɭєςՇเ๏ภร`)
+	status.SetPermanentText(`run alio -h for keybindings`)
 
 	libTable.OnSelectionChanged(func(t *tui.Table) {
 		if libTable.Selected() == 0 {
@@ -173,44 +173,49 @@ or use -d flag to designate directory name
 		}
 		libTable.Select(libTable.Selected() - 1)
 	}
+	//ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{}, 128)
+	forward := make(chan struct{}, 128)
+	previous := make(chan struct{}, 128)
 	play := func() {
+
 		s := libTable.Selected() - 1
 		if s == -1 {
 			return
 		}
+
 		if player.IsPlaying() {
 			err = player.Stop()
-			if err != nil {
-				panic(err)
-			}
+			// TODO: handle error?
+			// if err != nil {
+			//	panic("Stop" + err.Error())
+			// }
+			done <- struct{}{}
 		}
-
 		go func() {
-			err = playAlbum(player, albums[s], list, status)
-			if err != nil {
-				println("Album " + err.Error())
-			}
+			wg.Wait()
+			wg.Add(1)
+			err = playAlbum(
+				done,
+				player,
+				*albums[s],
+				list,
+				status,
+				forward,
+				previous,
+				0,
+			)
+			wg.Done()
+			// do nothing with the error
 		}()
+
 	}
 
 	pause := func() {
 		err = player.TogglePause()
 		if err != nil {
-			panic("Pause " + err.Error())
+			// panic("Pause " + err.Error())
 		}
-	}
-	next := func() {
-		// err = player.Stop()
-		// if err != nil {
-		//	panic("Stop, " + err.Error())
-		// }
-	}
-	prev := func() {
-		//TODO:
-		//err = player.PlayPrevious()
-		//if err != nil {
-		//panic(err)
-		//}
 	}
 	// Key bindings
 	ui.SetKeybinding("q", func() { ui.Quit() })
@@ -220,16 +225,20 @@ or use -d flag to designate directory name
 	ui.SetKeybinding("Ctrl+n", down)
 	ui.SetKeybinding("j", down)
 	ui.SetKeybinding("Ctrl+p", up)
-	ui.SetKeybinding("k", up)
+	ui.SetKeybinding("k", func() {
+		up()
+		fmt.Println("K")
+	})
 
 	ui.SetKeybinding("Enter", play)
 	ui.SetKeybinding("Tab", play)
 	ui.SetKeybinding("p", pause)
 
-	ui.SetKeybinding("Right", next)
-	ui.SetKeybinding("Ctrl-F", next)
-	ui.SetKeybinding("Left", prev)
-	ui.SetKeybinding("Ctrl-b", prev)
+	ui.SetKeybinding("Right", func() { forward <- struct{}{} })
+	ui.SetKeybinding("Ctrl-F", func() { forward <- struct{}{} })
+	ui.SetKeybinding("Ctrl-f", func() { forward <- struct{}{} })
+	ui.SetKeybinding("Left", func() { previous <- struct{}{} })
+	ui.SetKeybinding("Ctrl-b", func() { previous <- struct{}{} })
 
 	// update goroutine // TODO: must end?
 	go func() {
@@ -238,12 +247,12 @@ or use -d flag to designate directory name
 			if player.IsPlaying() {
 				length, err := player.MediaLength()
 				if err != nil {
-					//panic("Length" + err.Error())
+					continue
 				}
 
 				position, err := player.MediaPosition()
 				if err != nil {
-					//panic("Media Position" + err.Error())
+					continue
 				}
 				ui.Update(func() {
 					progress.SetCurrent(int(position * 1000))
@@ -262,7 +271,7 @@ or use -d flag to designate directory name
 }
 
 // in its own goroutine...
-func playAlbum(p *vlc.Player, a *Album, l *tui.List, s *tui.StatusBar) (err error) {
+func playAlbum(done chan struct{}, p *vlc.Player, a Album, l *tui.List, s *tui.StatusBar, next, prev chan struct{}, first int) (err error) {
 	playlist := make([]*vlc.Media, 0)
 	for _, path := range a.Paths {
 		media, err := vlc.NewMediaFromPath(path)
@@ -272,40 +281,41 @@ func playAlbum(p *vlc.Player, a *Album, l *tui.List, s *tui.StatusBar) (err erro
 		playlist = append(playlist, media)
 	}
 
-PlayLoop:
-	for idx := range playlist {
+	for idx := range playlist[first:] {
 		p.SetMedia(playlist[idx])
 		err = p.Play()
 		if err != nil {
 			return err
 		}
 
-		playing := map[vlc.MediaState]bool{
-			vlc.MediaIdle:      true,
-			vlc.MediaOpening:   true,
-			vlc.MediaBuffering: true,
-			vlc.MediaPaused:    true,
-			vlc.MediaPlaying:   true,
-			vlc.MediaStopped:   false,
-			vlc.MediaEnded:     false,
-		}
 		status, err := p.MediaState()
 		if err != nil {
 			return err
 		}
-		for playing[status] {
+	PlaybackLoop:
+		for status != vlc.MediaEnded {
 			status, err = p.MediaState()
-			if err != nil {
-				break PlayLoop
-			}
+			// handle err?
 			ui.Update(func() {
-				song := songStatus(*a, l.Selected())
+				song := songStatus(a, l.Selected())
 				if song != "" {
 					s.SetPermanentText(song)
 				}
 				l.SetSelected(idx)
 			})
-			time.Sleep(50 * time.Millisecond)
+			select {
+			case <-done:
+				return err
+			case <-next:
+				break PlaybackLoop
+			case <-prev:
+				if idx < 1 {
+					continue
+				}
+				return playAlbum(done, p, a, l, s, next, prev, idx-1)
+			default:
+				time.Sleep(50 * time.Millisecond)
+			}
 		}
 	}
 
@@ -389,7 +399,7 @@ func timestamp(pos float32, length int) string {
 		minutes,
 		seconds,
 	)
-	return fmt.Sprintf(`    %s - %s`,
+	return fmt.Sprintf(`  %s - %s`,
 		duration,
 		total,
 	)
@@ -401,7 +411,7 @@ func songStatus(a Album, idx int) string {
 		return ""
 	}
 
-	return fmt.Sprintf("%s / %s    ",
+	return fmt.Sprintf("%s / %s",
 		a.Title,
 		a.Songs[idx],
 	)

@@ -178,9 +178,9 @@ or use -d flag to designate directory name
 		libTable.Select(libTable.Selected() - 1)
 	}
 
-	done := make(chan struct{}, 128)
-	forward := make(chan struct{}, 128)
-	previous := make(chan struct{}, 128)
+	done := make(chan struct{}, 32)
+	forward := make(chan struct{}, 1)
+	previous := make(chan struct{}, 32)
 	play := func() {
 
 		s := libTable.Selected() - 1
@@ -230,7 +230,12 @@ or use -d flag to designate directory name
 	ui.SetKeybinding("Tab", play)
 	ui.SetKeybinding("p", pause)
 
-	ui.SetKeybinding("Right", func() { forward <- struct{}{} })
+	ui.SetKeybinding("Right", func() {
+		select {
+		case forward <- struct{}{}:
+		default:
+		}
+	})
 	ui.SetKeybinding("Ctrl-F", func() { forward <- struct{}{} })
 	ui.SetKeybinding("Ctrl-f", func() { forward <- struct{}{} })
 	ui.SetKeybinding("Left", func() { previous <- struct{}{} })
@@ -323,18 +328,17 @@ func playAlbum(p *vlc.Player, a Album, l *tui.List, t *tui.Table, s *tui.StatusB
 				l.SetSelected(-1)
 			}
 			select {
-			case <-done:
-				return err
 			case <-next:
 				break PlaybackLoop
 			case <-prev:
 				continue // TODO: implement previous
+			case <-done:
+				return err
 			default:
 				time.Sleep(50 * time.Millisecond)
 			}
 		}
 	}
-
 	return err
 }
 

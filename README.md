@@ -33,9 +33,10 @@ or use -d flag to designate directory name
 
 ## Controls
 
-- `Ctrl-n` + `Ctrl-p` emacs style next line prev line navigating the album collection.
+- `Ctrl-n`/`j` + `Ctrl-p`/`k` emacs style next line prev line navigating the album collection.
 - `Ctrl-c` `Esc` and `q` for quitting.
-- `Space` and `Enter` for playing an album.
+- `Tab` and `Enter` for playing an album.
+- `p` pauses.
 
 ## TODO:
 
@@ -47,11 +48,12 @@ There are some functions missing from the `libvlc` c-go bindings which I need to
 
 - [x] Prev and Next Song in list
 - [x] Pause songs
-- [ ] Get Song Position from Player
+- [x] Get Song Position and Title from Player
 
 ### UI
 
 - [ ] Adjust the stretch of columns
-- [ ] Update the progress bar
-- [ ] Display song name in status bar
-- [ ] Display keybindings on help
+- [x] Update the progress bar
+- [x] Display song name in status bar
+- [x] Display keybindings on help
+- [ ] Get "Space" and "Ctrl-F" keybindings

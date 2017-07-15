@@ -35,7 +35,7 @@ looks for a Music/ directory
 ![Alio](/screenshot.png?raw=true)
 
 
-## Controls
+## Controls (Hybrid Emacs and Vim)
 
 - `Ctrl-n`/`j` + `Ctrl-p`/`k` emacs style next line prev line navigating the album collection.
 - `Ctrl-c` `Esc` and `q` for quitting.

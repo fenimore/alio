@@ -12,17 +12,17 @@ Depends on `libvlc 2.X` for building (but the release should be compiled with th
 
 Commandline Album Player!
 
-Keybinding:
+Keybinding (Hybrid Emacs + Vim):
 Quit: q, Ctrl-c, Esc
 Move down: Ctrl-n, j
 Move up: Ctrl-p, k
 Play album: Enter, Tab
 Pause: p (coming soon: Space)
-Next Song: Right arrow, Ctrl-f
-Previous Song: Left arrow, Ctrl-b
+Next Song: Right arrow, Ctrl-f, l
+Previous Song: Left arrow, Ctrl-b, h
 
-Application looks for a Music/ directory
-or use -dir flag to designate directory name
+looks for a Music/ directory
+    or use -dir flag to designate directory name
 
   -debug
         log messages in debug.log

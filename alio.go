@@ -6,6 +6,7 @@ import (
 	vlc "github.com/adrg/libvlc-go"
 	"github.com/marcusolsson/tui-go"
 	"io/ioutil"
+	"log"
 	_ "log"
 	"os"
 	"path"
@@ -21,6 +22,8 @@ var PhotoExts = ".jpg .jpeg .png"
 
 var ui tui.UI
 var wg *sync.WaitGroup
+var pg *sync.WaitGroup
+var lock *sync.Mutex
 
 type Task int
 
@@ -65,15 +68,28 @@ Pause: p (coming soon: Space)
 Next Song: Right arrow, Ctrl-f
 Previous Song: Left arrow, Ctrl-b
 
-Launch application in pwd of a Music/ directory
+Application looks for a Music/ directory
 or use -d flag to designate directory name
 `)
 		flag.PrintDefaults()
 		os.Exit(0)
 	}
-	DIR = *flag.String("d", "Music",
+	DIR = *flag.String("dir", "Music",
+		"default music collection directory")
+	DEBUG := flag.Bool("debug", false,
 		"default music collection directory")
 	flag.Parse()
+
+	if *DEBUG {
+		logfile, err := os.Create("debug.log")
+		if err == nil {
+			log.SetOutput(logfile)
+		}
+	} else {
+		log.SetOutput(ioutil.Discard)
+	}
+	log.Printf("Debug: %t", *DEBUG)
+
 	// Collect Albums from FileSystem root Music
 	albums, err := CollectAlbums(DIR)
 	if err != nil {
@@ -81,6 +97,8 @@ or use -d flag to designate directory name
 	}
 
 	wg = new(sync.WaitGroup)
+	pg = new(sync.WaitGroup)
+	lock = new(sync.Mutex)
 
 	if len(albums) < 1 {
 		flag.Usage()
@@ -187,9 +205,16 @@ or use -d flag to designate directory name
 		if s == -1 {
 			return
 		}
-
-		if player.IsPlaying() {
+		lock.Lock()
+		playing := player.IsPlaying()
+		lock.Unlock()
+		if playing {
+			lock.Lock()
 			err = player.Stop()
+			lock.Unlock()
+			if err != nil {
+				log.Printf("Stop err: %s", err)
+			}
 			// TODO: handle error?
 			done <- struct{}{}
 		}
@@ -213,9 +238,11 @@ or use -d flag to designate directory name
 	}
 
 	pause := func() {
+		lock.Lock()
 		err = player.TogglePause()
+		lock.Unlock()
 		if err != nil {
-			// panic("Pause " + err.Error())
+			log.Printf("Pause err: %s", err)
 		}
 	}
 	// Key bindings
@@ -233,7 +260,9 @@ or use -d flag to designate directory name
 	ui.SetKeybinding("Right", func() {
 		select {
 		case forward <- struct{}{}:
+			log.Print("Forward Press Passed!")
 		default:
+			log.Print("Forward Press Default")
 		}
 	})
 	ui.SetKeybinding("Ctrl-F", func() { forward <- struct{}{} })
@@ -245,13 +274,19 @@ or use -d flag to designate directory name
 	go func() {
 		for {
 			time.Sleep(40 * time.Millisecond)
-			if player.IsPlaying() {
+			lock.Lock()
+			playing := player.IsPlaying()
+			lock.Unlock()
+			if playing {
+				lock.Lock()
 				length, err := player.MediaLength()
+				lock.Unlock()
 				if err != nil {
 					continue
 				}
-
+				lock.Lock()
 				position, err := player.MediaPosition()
+				lock.Unlock()
 				if err != nil {
 					continue
 				}
@@ -293,6 +328,10 @@ or use -d flag to designate directory name
 
 // in its own goroutine...
 func playAlbum(p *vlc.Player, a Album, l *tui.List, t *tui.Table, s *tui.StatusBar, done, next, prev chan struct{}) (err error) {
+	log.Printf("PlayAlbum \n")
+	pg.Wait()
+	pg.Add(1)
+	defer pg.Done()
 	playlist := make([]*vlc.Media, 0)
 	for _, path := range a.Paths {
 		media, err := vlc.NewMediaFromPath(path)
@@ -303,20 +342,30 @@ func playAlbum(p *vlc.Player, a Album, l *tui.List, t *tui.Table, s *tui.StatusB
 	}
 
 	for idx := range playlist {
+		lock.Lock()
 		p.SetMedia(playlist[idx])
 		err = p.Play()
+		lock.Unlock()
 		if err != nil {
 			return err
 		}
 
+		lock.Lock()
 		status, err := p.MediaState()
+		lock.Unlock()
 		if err != nil {
 			return err
 		}
+		log.Printf("Playback %d/%d", idx, len(playlist))
 	PlaybackLoop:
 		for status != vlc.MediaEnded {
+			lock.Lock()
 			status, err = p.MediaState()
-			// don't handle err
+			lock.Unlock()
+			if err != nil {
+				log.Println("Failure", err)
+				return err
+			}
 			song := songStatus(a, l.Selected())
 			if song != "" {
 				s.SetPermanentText(song)
@@ -329,16 +378,20 @@ func playAlbum(p *vlc.Player, a Album, l *tui.List, t *tui.Table, s *tui.StatusB
 			}
 			select {
 			case <-next:
+				log.Println("Recv on Next")
 				break PlaybackLoop
 			case <-prev:
 				continue // TODO: implement previous
 			case <-done:
+				log.Println("Return Done")
 				return err
 			default:
 				time.Sleep(50 * time.Millisecond)
 			}
 		}
+		log.Printf("Playback end %d", idx+1)
 	}
+	log.Println("End of playlist loop")
 	return err
 }
 

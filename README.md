@@ -3,14 +3,14 @@
 Depends on `libvlc 2.X` for building (but the release should be compiled with the libvlc).
 
 ```
-         _   _
-     /\ | | (_)
-    /  \| |  _  ___
-   / /\ \ | | |/ _ \
-  / ____ \| | | (_) |
- /_/    \_\_|_|\___/
+         _  _
+     /\ | |(_)
+    /  \| | _  ___
+   / /\ \ || |/ _ \
+  / ____ \|| | (_)
+ /_/    \_\|_|\___/
 
-Commandline album player!
+Commandline Album Player!
 
 Keybinding:
 Quit: q, Ctrl-c, Esc
@@ -21,11 +21,15 @@ Pause: p (coming soon: Space)
 Next Song: Right arrow, Ctrl-f
 Previous Song: Left arrow, Ctrl-b
 
-Launch application in pwd of a Music/ directory
-or use -d flag to designate directory name
+Application looks for a Music/ directory
+or use -dir flag to designate directory name
 
-  -d string
+  -debug
+        log messages in debug.log
+  -dir string
         default music collection directory (default "Music")
+  -nocolor
+        don't use color highlighting
 ```
 
 ![Alio](/screenshot.png?raw=true)
@@ -46,7 +50,8 @@ or use -d flag to designate directory name
 
 There are some functions missing from the `libvlc` c-go bindings which I need to add:
 
-- [x] Prev and Next Song in list
+- [x] Next Song in list
+- [ ] Prev Song in list
 - [x] Pause songs
 - [x] Get Song Position and Title from Player
 

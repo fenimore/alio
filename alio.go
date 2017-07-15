@@ -47,17 +47,15 @@ func (a *Album) String() string {
 	return fmt.Sprintf("%s | %d", a.Title, a.Count)
 }
 
-func main() {
-	flag.Usage = func() {
-		fmt.Println(`
-	   _ _
-     /\   | (_)
-    /  \  | |_  ___
+var help = `
+	 _   _
+     /\ | | (_)
+    /  \| |  _  ___
    / /\ \ | | |/ _ \
-  / ____ \| | | (_) |
- /_/    \_\_|_|\___/
+  / ____ \| | | (_)
+ /_/    \_\ |_|\___/
 
-Commandline album player!
+Commandline Album Player!
 
 Keybinding:
 Quit: q, Ctrl-c, Esc
@@ -68,16 +66,22 @@ Pause: p (coming soon: Space)
 Next Song: Right arrow, Ctrl-f
 Previous Song: Left arrow, Ctrl-b
 
-Application looks for a Music/ directory
-or use -d flag to designate directory name
-`)
+looks for a Music/ directory
+    or use -dir flag to designate directory name
+`
+
+func main() {
+	flag.Usage = func() {
+		fmt.Printf("%s\n\n%s\n", help, "-h for help")
 		flag.PrintDefaults()
 		os.Exit(0)
 	}
 	DIR = *flag.String("dir", "Music",
 		"default music collection directory")
 	DEBUG := flag.Bool("debug", false,
-		"default music collection directory")
+		"log messages in debug.log")
+	NOTHEME := flag.Bool("nocolor", false,
+		"don't use color highlighting")
 	flag.Parse()
 
 	if *DEBUG {
@@ -88,7 +92,8 @@ or use -d flag to designate directory name
 	} else {
 		log.SetOutput(ioutil.Discard)
 	}
-	log.Printf("Debug: %t", *DEBUG)
+	log.Printf("Flags: debug: %t | dir: %s | nocolor: %t",
+		*DEBUG, DIR, *NOTHEME)
 
 	// Collect Albums from FileSystem root Music
 	albums, err := CollectAlbums(DIR)
@@ -196,9 +201,9 @@ or use -d flag to designate directory name
 		libTable.Select(libTable.Selected() - 1)
 	}
 
-	done := make(chan struct{}, 32)
+	done := make(chan struct{}, 1)
 	forward := make(chan struct{}, 1)
-	previous := make(chan struct{}, 32)
+	previous := make(chan struct{}, 1)
 	play := func() {
 
 		s := libTable.Selected() - 1
@@ -260,7 +265,6 @@ or use -d flag to designate directory name
 	ui.SetKeybinding("Right", func() {
 		select {
 		case forward <- struct{}{}:
-			log.Print("Forward Press Passed!")
 		default:
 			log.Print("Forward Press Default")
 		}
@@ -318,11 +322,13 @@ or use -d flag to designate directory name
 	theme.SetStyle("label.album", tui.Style{
 		Bg: tui.ColorDefault, Fg: tui.ColorYellow,
 	})
-	ui.SetTheme(theme) // TODO: Add flag for no theme
-
+	if !*NOTHEME {
+		ui.SetTheme(theme)
+	}
 	if err := ui.Run(); err != nil {
 		panic("Run " + err.Error())
 	}
+	fmt.Println(help)
 	fmt.Println("Adios from Alio Music Player!")
 }
 
@@ -356,7 +362,8 @@ func playAlbum(p *vlc.Player, a Album, l *tui.List, t *tui.Table, s *tui.StatusB
 		if err != nil {
 			return err
 		}
-		log.Printf("Playback %d/%d", idx, len(playlist))
+		log.Printf("Playback start %d/%d",
+			idx, len(playlist))
 	PlaybackLoop:
 		for status != vlc.MediaEnded {
 			lock.Lock()
@@ -366,7 +373,7 @@ func playAlbum(p *vlc.Player, a Album, l *tui.List, t *tui.Table, s *tui.StatusB
 				log.Println("Failure", err)
 				return err
 			}
-			song := songStatus(a, l.Selected())
+			song := songStatus(a, idx)
 			if song != "" {
 				s.SetPermanentText(song)
 			}
@@ -389,7 +396,7 @@ func playAlbum(p *vlc.Player, a Album, l *tui.List, t *tui.Table, s *tui.StatusB
 				time.Sleep(50 * time.Millisecond)
 			}
 		}
-		log.Printf("Playback end %d", idx+1)
+		log.Printf("Playback end")
 	}
 	log.Println("End of playlist loop")
 	return err

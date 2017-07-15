@@ -1,6 +1,8 @@
 # Alio
 
-Depends on `libvlc 2.X` for building (but the release should be compiled with the libvlc).
+## Commandline album player
+
+Depends on `libvlc 2.X` for building (but the **releases** and dependency free).
 
 ```
          _  _
@@ -35,16 +37,14 @@ looks for a Music/ directory
 ![Alio](/screenshot.png?raw=true)
 
 
-## Controls (Hybrid Emacs and Vim)
+### Controls (Hybrid Emacs and Vim)
 
-- `Ctrl-n`/`j` + `Ctrl-p`/`k` emacs style next line prev line navigating the album collection.
-- `Ctrl-c` `Esc` and `q` for quitting.
-- `Tab` and `Enter` for playing an album.
-- `p` pauses.
-
-## TODO:
-
-- [ ] Sort 1, 2 ... 10
+- [x] `Ctrl-n`/`j` + `Ctrl-p`/`k` emacs style next line prev line navigating the album collection.
+- [x] `Ctrl-c` `Esc` and `q` for quitting.
+- [x] `Tab` and `Enter` for playing an album.
+- [x] `p` pauses.
+- [ ] `Ctrl-f Ctrl-b`.
+- [ ] `SPC`.
 
 ### Audio playback
 
@@ -58,6 +58,7 @@ There are some functions missing from the `libvlc` c-go bindings which I need to
 ### UI
 
 - [ ] Adjust the stretch of columns
+- [ ] Scrollable view
 - [x] Update the progress bar
 - [x] Display song name in status bar
 - [x] Display keybindings on help

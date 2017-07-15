@@ -270,9 +270,9 @@ func main() {
 		}
 	})
 	ui.SetKeybinding("Ctrl-f", func() { forward <- struct{}{} })
-	ui.SetKeybinding("h", func() { forward <- struct{}{} })
+	ui.SetKeybinding("l", func() { forward <- struct{}{} })
 	ui.SetKeybinding("Left", func() { previous <- struct{}{} })
-	ui.SetKeybinding("l", func() { previous <- struct{}{} })
+	ui.SetKeybinding("h", func() { previous <- struct{}{} })
 	ui.SetKeybinding("Ctrl-b", func() { previous <- struct{}{} })
 
 	// update goroutine // TODO: must end?

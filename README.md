@@ -39,27 +39,13 @@ looks for a Music/ directory
 
 ### Controls (Hybrid Emacs and Vim)
 
-- [x] `Ctrl-n`/`j` + `Ctrl-p`/`k` emacs style next line prev line navigating the album collection.
-- [x] `Ctrl-c` `Esc` and `q` for quitting.
-- [x] `Tab` and `Enter` for playing an album.
-- [x] `p` pauses.
-- [x] `Ctrl-f Ctrl-b`.
-- [ ] `SPC`.
+- `Ctrl-n`/`j` + `Ctrl-p`/`k` previous and next album.
+- `Ctrl-b`/`h` + `Ctrl-f`/`l` forward and back song.
+- `Ctrl-c` `Esc` and `q` to quit.
+- `Tab` and `Enter` to play an album.
+- `p` to pause.
 
-### Audio playback
+### UI todos
 
-There are some functions missing from the `libvlc` c-go bindings which I need to add:
-
-- [x] Next Song in list
-- [x] Prev Song in list
-- [x] Pause songs
-- [x] Get Song Position and Title from Player
-
-### UI
-
-- [ ] Adjust the stretch of columns
 - [ ] Scrollable view
-- [x] Update the progress bar
-- [x] Display song name in status bar
-- [x] Display keybindings on help
-- [ ] Finish keybindings
+- [ ] theme options

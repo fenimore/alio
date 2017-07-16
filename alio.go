@@ -16,7 +16,6 @@ import (
 	"time"
 )
 
-var DIR = "Music"
 var MusicExts = ".mp3 .ogg .m4a .flac"
 var PhotoExts = ".jpg .jpeg .png"
 
@@ -76,7 +75,7 @@ func main() {
 		flag.PrintDefaults()
 		os.Exit(0)
 	}
-	DIR = *flag.String("dir", "Music",
+	DIR := flag.String("dir", "Music",
 		"default music collection directory")
 	DEBUG := flag.Bool("debug", false,
 		"log messages in debug.log")
@@ -93,10 +92,10 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 	log.Printf("Flags: debug: %t | dir: %s | nocolor: %t",
-		*DEBUG, DIR, *NOTHEME)
+		*DEBUG, *DIR, *NOTHEME)
 
 	// Collect Albums from FileSystem root Music
-	albums, err := CollectAlbums(DIR)
+	albums, err := CollectAlbums(*DIR)
 	if err != nil {
 		panic(err)
 	}
@@ -261,6 +260,7 @@ func main() {
 	ui.SetKeybinding("Enter", play)
 	ui.SetKeybinding("Tab", play)
 	ui.SetKeybinding("p", pause)
+	ui.SetKeybinding("Space", pause)
 
 	ui.SetKeybinding("Right", func() {
 		select {
@@ -269,11 +269,11 @@ func main() {
 			log.Print("Forward Press Default")
 		}
 	})
-	ui.SetKeybinding("Ctrl-f", func() { forward <- struct{}{} })
+	ui.SetKeybinding("Ctrl+f", func() { forward <- struct{}{} })
 	ui.SetKeybinding("l", func() { forward <- struct{}{} })
 	ui.SetKeybinding("Left", func() { previous <- struct{}{} })
 	ui.SetKeybinding("h", func() { previous <- struct{}{} })
-	ui.SetKeybinding("Ctrl-b", func() { previous <- struct{}{} })
+	ui.SetKeybinding("Ctrl+b", func() { previous <- struct{}{} })
 
 	// update goroutine // TODO: must end?
 	go func() {

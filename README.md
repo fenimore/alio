@@ -2,7 +2,7 @@
 
 ## Commandline album player
 
-Depends on `libvlc 2.X` for building (but the **releases** and dependency free).
+Depends on `libvlc 2.X` for _build_ (but the **releases** are dependency free).
 
 ```
          _  _

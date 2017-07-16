@@ -339,18 +339,21 @@ func playAlbum(p *vlc.Player, a Album, l *tui.List, t *tui.Table, s *tui.StatusB
 	pg.Wait()
 	pg.Add(1)
 	defer pg.Done()
-	playlist := make([]*vlc.Media, 0)
+
+	playlist := new(PlayList)
 	for _, path := range a.Paths {
 		media, err := vlc.NewMediaFromPath(path)
 		if err != nil {
 			return err
 		}
-		playlist = append(playlist, media)
+		song := &Song{media, path, playlist, nil, nil, 0}
+		playlist.append(song)
 	}
 
-	for idx := range playlist {
+	current := playlist.head
+	for current != nil {
 		lock.Lock()
-		p.SetMedia(playlist[idx])
+		p.SetMedia(current.media)
 		err = p.Play()
 		lock.Unlock()
 		if err != nil {
@@ -364,7 +367,7 @@ func playAlbum(p *vlc.Player, a Album, l *tui.List, t *tui.Table, s *tui.StatusB
 			return err
 		}
 		log.Printf("Playback start %d/%d",
-			idx, len(playlist))
+			current.index, playlist.size)
 	PlaybackLoop:
 		for status != vlc.MediaEnded {
 			lock.Lock()
@@ -374,22 +377,27 @@ func playAlbum(p *vlc.Player, a Album, l *tui.List, t *tui.Table, s *tui.StatusB
 				log.Println("Failure", err)
 				return err
 			}
-			song := songStatus(a, idx)
+			song := songStatus(a, current.index)
 			if song != "" {
 				s.SetPermanentText(song)
 			}
 
 			if t.Selected() == a.Index {
-				l.SetSelected(idx)
+				l.SetSelected(current.index)
 			} else {
 				l.SetSelected(-1)
 			}
 			select {
 			case <-next:
 				log.Println("Recv on Next")
+				current = current.next
 				break PlaybackLoop
 			case <-prev:
-				continue // TODO: implement previous
+				log.Println("Recv on Prev")
+				if current.prev != nil {
+					current = current.prev
+				}
+				break PlaybackLoop
 			case <-done:
 				log.Println("Return Done")
 				return err
@@ -497,4 +505,36 @@ func songStatus(a Album, idx int) string {
 		a.Title,
 		a.Songs[idx],
 	)
+}
+
+/////////////////////////////////////////////
+// Linked list for iterating over an album //
+/////////////////////////////////////////////
+type Song struct {
+	media *vlc.Media
+	path  string
+	list  *PlayList
+	next  *Song
+	prev  *Song
+	index int
+}
+
+type PlayList struct {
+	head *Song
+	last *Song
+	size int
+	lock *sync.Mutex
+}
+
+func (l *PlayList) append(s *Song) {
+	if l.head == nil {
+		s.index = 0
+		l.head, l.last = s, s
+	} else {
+		s.index = l.last.index + 1
+		l.last.next = s
+		s.prev = l.last
+		l.last = s
+	}
+	l.size++
 }

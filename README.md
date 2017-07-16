@@ -19,7 +19,7 @@ Quit: q, Ctrl-c, Esc
 Move down: Ctrl-n, j
 Move up: Ctrl-p, k
 Play album: Enter, Tab
-Pause: p (coming soon: Space)
+Pause: p
 Next Song: Right arrow, Ctrl-f, l
 Previous Song: Left arrow, Ctrl-b, h
 
@@ -29,7 +29,7 @@ looks for a Music/ directory
   -debug
         log messages in debug.log
   -dir string
-        default music collection directory (default "Music")
+        music collection directory (default "Music")
   -nocolor
         don't use color highlighting
 ```

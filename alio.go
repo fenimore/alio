@@ -76,7 +76,7 @@ func main() {
 		os.Exit(0)
 	}
 	DIR := flag.String("dir", "Music",
-		"default music collection directory")
+		"music collection directory")
 	DEBUG := flag.Bool("debug", false,
 		"log messages in debug.log")
 	NOTHEME := flag.Bool("nocolor", false,

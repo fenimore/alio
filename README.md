@@ -43,7 +43,7 @@ looks for a Music/ directory
 - [x] `Ctrl-c` `Esc` and `q` for quitting.
 - [x] `Tab` and `Enter` for playing an album.
 - [x] `p` pauses.
-- [ ] `Ctrl-f Ctrl-b`.
+- [x] `Ctrl-f Ctrl-b`.
 - [ ] `SPC`.
 
 ### Audio playback
@@ -51,7 +51,7 @@ looks for a Music/ directory
 There are some functions missing from the `libvlc` c-go bindings which I need to add:
 
 - [x] Next Song in list
-- [ ] Prev Song in list
+- [x] Prev Song in list
 - [x] Pause songs
 - [x] Get Song Position and Title from Player
 
@@ -62,4 +62,4 @@ There are some functions missing from the `libvlc` c-go bindings which I need to
 - [x] Update the progress bar
 - [x] Display song name in status bar
 - [x] Display keybindings on help
-- [ ] Get "Space" and "Ctrl-F" keybindings
+- [ ] Finish keybindings

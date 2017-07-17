@@ -398,6 +398,9 @@ func playAlbum(p *vlc.Player, a Album, l *tui.List, t *tui.Table, s *tui.StatusB
 				time.Sleep(50 * time.Millisecond)
 			}
 		}
+		if status == vlc.MediaEnded {
+			current = current.next
+		}
 		log.Printf("Playback end")
 	}
 	log.Println("End of playlist loop")

@@ -20,18 +20,9 @@ var MusicExts = ".mp3 .ogg .m4a .flac"
 var PhotoExts = ".jpg .jpeg .png"
 
 var ui tui.UI
-var wg *sync.WaitGroup
-var pg *sync.WaitGroup
+var wg *sync.WaitGroup // Wrapped with two waitgroups?
+var pg *sync.WaitGroup // A single playback goroutine
 var lock *sync.Mutex
-
-type Task int
-
-const (
-	Pause Task = iota
-	Play
-	Next
-	Prev
-)
 
 type Album struct {
 	Title string
@@ -146,10 +137,10 @@ func main() {
 		tui.NewSpacer(),
 	)
 	songList.SetBorder(false)
-
-	for _, album := range albums {
+	//	albums = albums[10:]
+	for idx := range albums {
 		libTable.AppendRow(
-			tui.NewLabel(album.Title),
+			tui.NewLabel(albums[idx].Title),
 		)
 	}
 
@@ -199,7 +190,9 @@ func main() {
 		}
 		libTable.Select(libTable.Selected() - 1)
 	}
+	// TODO: focus command to go to current playing album
 
+	// controls
 	done := make(chan struct{}, 1)
 	forward := make(chan struct{}, 1)
 	previous := make(chan struct{}, 1)

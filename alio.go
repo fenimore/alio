@@ -123,9 +123,10 @@ func main() {
 	sLabel := tui.NewLabel("Songs")
 	aLabel.SetStyleName("album")
 	sLabel.SetStyleName("album")
+	wrap := tui.NewScrollArea(libTable)
 	library := tui.NewVBox(
 		aLabel,
-		libTable,
+		wrap,
 		tui.NewSpacer(),
 	)
 	library.SetBorder(false)
@@ -173,6 +174,9 @@ func main() {
 	)
 
 	ui = tui.New(root)
+
+	ui.SetKeybinding("Up", func() { wrap.Scroll(0, -1) })
+	ui.SetKeybinding("Down", func() { wrap.Scroll(0, 1) })
 
 	// move the cursor to the first album
 	libTable.Select(1)
@@ -319,16 +323,21 @@ func main() {
 	if !*NOTHEME {
 		ui.SetTheme(theme)
 	}
+	log.Println(libTable.MinSizeHint())
+	log.Println(libTable.Selected())
+	log.Println(libTable.Size())
+	log.Println(libTable.SizeHint())
+
 	if err := ui.Run(); err != nil {
 		panic("Run " + err.Error())
 	}
-	fmt.Println(help)
+	//fmt.Println(help)
 	fmt.Println("Adios from Alio Music Player!")
 }
 
 // in its own goroutine...
 func playAlbum(p *vlc.Player, a Album, l *tui.List, t *tui.Table, s *tui.StatusBar, done, next, prev chan struct{}) (err error) {
-	log.Printf("PlayAlbum \n")
+	log.Printf("PlayAlbum %s \n", a.Title)
 	pg.Wait()
 	pg.Add(1)
 	defer pg.Done()
@@ -459,6 +468,7 @@ func CollectAlbums(root string) ([]*Album, error) {
 		}
 	}
 
+	log.Printf("Album Lenght %d", len(albums))
 	return albums, nil
 }
 

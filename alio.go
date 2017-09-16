@@ -175,9 +175,6 @@ func main() {
 
 	ui = tui.New(root)
 
-	ui.SetKeybinding("Up", func() { wrap.Scroll(0, -1) })
-	ui.SetKeybinding("Down", func() { wrap.Scroll(0, 1) })
-
 	// move the cursor to the first album
 	libTable.Select(1)
 
@@ -194,8 +191,15 @@ func main() {
 		}
 		libTable.Select(libTable.Selected() - 1)
 	}
+	ui.SetKeybinding("Up", func() {
+		wrap.Scroll(0, -1)
+		up()
+	})
+	ui.SetKeybinding("Down", func() {
+		wrap.Scroll(0, 1)
+		down()
+	})
 	// TODO: focus command to go to current playing album
-
 	// controls
 	done := make(chan struct{}, 1)
 	forward := make(chan struct{}, 1)
@@ -212,7 +216,7 @@ func main() {
 			log.Printf("State err: %s in inline play function", err)
 			return
 		}
-		log.Printf("State: %d\n", state)
+		log.Printf("State: %d", state)
 		lock.Unlock()
 		if state == vlc.MediaPaused ||
 			state == vlc.MediaPlaying {
@@ -253,7 +257,15 @@ func main() {
 		}
 	}
 	// Key bindings
-	ui.SetKeybinding("q", func() { ui.Quit() })
+	ui.SetKeybinding("q", func() {
+		ui.Quit()
+		log.Printf("Done [q]: ui.Quit")
+		err = player.Release()
+		log.Printf("Done [q]: Release")
+		if err != nil {
+			log.Printf("VLC Release err: %s", err)
+		}
+	})
 	ui.SetKeybinding("Esc", func() { ui.Quit() })
 	ui.SetKeybinding("Ctrl+c", func() { ui.Quit() })
 
@@ -337,13 +349,13 @@ func main() {
 	if err := ui.Run(); err != nil {
 		panic("Run " + err.Error())
 	}
-	//fmt.Println(help)
+	log.Printf("Ending Program")
 	fmt.Println("Adios from Alio Music Player!")
 }
 
 // in its own goroutine...
 func playAlbum(p *vlc.Player, a Album, l *tui.List, t *tui.Table, s *tui.StatusBar, done, next, prev chan struct{}) (err error) {
-	log.Printf("PlayAlbum %s \n", a.Title)
+	log.Printf("PlayAlbum %s", a.Title)
 	pg.Wait()
 	pg.Add(1)
 	defer pg.Done()

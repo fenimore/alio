@@ -277,23 +277,30 @@ func main() {
 	ui.SetKeybinding("p", pause)
 	ui.SetKeybinding("Space", pause)
 
-	ui.SetKeybinding("Right", func() {
+	back := func() {
+		select {
+		case previous <- struct{}{}:
+		default:
+			log.Print("Forward Press Default")
+		}
+	}
+	next := func() {
 		select {
 		case forward <- struct{}{}:
 		default:
 			log.Print("Forward Press Default")
 		}
-	})
-	ui.SetKeybinding("Ctrl+f", func() { forward <- struct{}{} })
-	ui.SetKeybinding("l", func() { forward <- struct{}{} })
-	ui.SetKeybinding("Left", func() { previous <- struct{}{} })
-	ui.SetKeybinding("h", func() { previous <- struct{}{} })
-	ui.SetKeybinding("Ctrl+b", func() { previous <- struct{}{} })
+	}
+	ui.SetKeybinding("Right", next)
+	ui.SetKeybinding("Ctrl+f", next)
+	ui.SetKeybinding("l", next)
+	ui.SetKeybinding("Left", back)
+	ui.SetKeybinding("h", back)
+	ui.SetKeybinding("Ctrl+b", back)
 
 	// update goroutine // TODO: must end?
 	go func() {
 		for {
-			time.Sleep(40 * time.Millisecond)
 			lock.Lock()
 			playing := player.IsPlaying()
 			lock.Unlock()

@@ -51,6 +51,7 @@ Keybinding (Hybrid Emacs + Vim):
 Quit: q, Ctrl-c, Esc
 Move down: Ctrl-n, j
 Move up: Ctrl-p, k
+Scroll: Up, Down Arrow
 Play album: Enter, Tab
 Pause: p (coming soon: Space)
 Next Song: Right arrow, Ctrl-f, l

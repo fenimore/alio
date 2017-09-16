@@ -18,6 +18,7 @@ Keybinding (Hybrid Emacs + Vim):
 Quit: q, Ctrl-c, Esc
 Move down: Ctrl-n, j
 Move up: Ctrl-p, k
+Scroll: Up, Down Arrow
 Play album: Enter, Tab
 Pause: p
 Next Song: Right arrow, Ctrl-f, l
@@ -42,10 +43,11 @@ looks for a Music/ directory
 - `Ctrl-n`/`j` + `Ctrl-p`/`k` previous and next album.
 - `Ctrl-b`/`h` + `Ctrl-f`/`l` forward and back song.
 - `Ctrl-c` `Esc` and `q` to quit.
+-  `Up` and `Down` arrow for scrolling library
 - `Tab` and `Enter` to play an album.
 - `p` to pause.
 
 ### UI todos
 
-- [ ] Scrollable view
+- [x] Scrollable view (mvp)
 - [ ] theme options

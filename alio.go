@@ -207,9 +207,15 @@ func main() {
 			return
 		}
 		lock.Lock()
-		playing := player.IsPlaying()
+		state, err := player.MediaState()
+		if err != nil {
+			log.Printf("State err: %s in inline play function", err)
+			return
+		}
+		log.Printf("State: %d\n", state)
 		lock.Unlock()
-		if playing {
+		if state == vlc.MediaPaused ||
+			state == vlc.MediaPlaying {
 			lock.Lock()
 			err = player.Stop()
 			lock.Unlock()

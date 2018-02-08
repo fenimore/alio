@@ -3,8 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	vlc "github.com/adrg/libvlc-go"
-	"github.com/marcusolsson/tui-go"
 	"io/ioutil"
 	"log"
 	_ "log"
@@ -14,6 +12,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	vlc "github.com/adrg/libvlc-go"
+	tui "github.com/marcusolsson/tui-go"
 )
 
 var MusicExts = ".mp3 .ogg .m4a .flac"
@@ -118,7 +119,6 @@ func main() {
 
 	// Set up UI
 	libTable := tui.NewTable(0, 1)
-	libTable.SetColumnStretch(0, 0)
 
 	aLabel := tui.NewLabel("Albums")
 	sLabel := tui.NewLabel("Songs")
@@ -139,7 +139,6 @@ func main() {
 		tui.NewSpacer(),
 	)
 	songList.SetBorder(false)
-	//	albums = albums[10:]
 	for idx := range albums {
 		libTable.AppendRow(
 			tui.NewLabel(albums[idx].Title),
@@ -164,7 +163,7 @@ func main() {
 
 	selection := tui.NewHBox(
 		library,
-		tui.NewPadder(1, 0, songList),
+		tui.NewPadder(0, 0, songList),
 	)
 
 	root := tui.NewVBox(
@@ -174,7 +173,10 @@ func main() {
 		tui.NewSpacer(),
 	)
 
-	ui = tui.New(root)
+	ui, err = tui.New(root)
+	if err != nil {
+		panic("Ui didn't build?")
+	}
 
 	// move the cursor to the first album
 	libTable.Select(1)
@@ -197,6 +199,14 @@ func main() {
 		up()
 	})
 	ui.SetKeybinding("Down", func() {
+		wrap.Scroll(0, 1)
+		down()
+	})
+	ui.SetKeybinding("k", func() {
+		wrap.Scroll(0, -1)
+		up()
+	})
+	ui.SetKeybinding("j", func() {
 		wrap.Scroll(0, 1)
 		down()
 	})
@@ -418,8 +428,10 @@ func playAlbum(p *vlc.Player, a Album, l *tui.List, t *tui.Table, s *tui.StatusB
 			select {
 			case <-next:
 				log.Println("Recv on Next")
-				current = current.next
-				break PlaybackLoop
+				if current.next != nil {
+					current = current.next
+					break PlaybackLoop
+				}
 			case <-prev:
 				log.Println("Recv on Prev")
 				if current.prev != nil {
@@ -430,7 +442,9 @@ func playAlbum(p *vlc.Player, a Album, l *tui.List, t *tui.Table, s *tui.StatusB
 				log.Println("Return Done")
 				return err
 			default:
-				time.Sleep(50 * time.Millisecond)
+				continue
+				// FIXME: Do I need this?
+				//time.Sleep(50 * time.Millisecond)
 			}
 		}
 		if status == vlc.MediaEnded {

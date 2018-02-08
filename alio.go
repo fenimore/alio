@@ -132,7 +132,6 @@ func main() {
 		tui.NewSpacer(),
 	)
 	library.SetBorder(false)
-
 	list := tui.NewList()
 	songList := tui.NewVBox(
 		sLabel,
@@ -150,7 +149,7 @@ func main() {
 	progress.SetCurrent(0)
 
 	status := tui.NewStatusBar(`		คɭเ๏ :: {} ς๏ɭɭєςՇเ๏ภร`)
-	status.SetPermanentText(`run alio -h for keybindings`)
+	status.SetPermanentText(`run: alio -h for help`)
 
 	libTable.OnSelectionChanged(func(t *tui.Table) {
 		if libTable.Selected() == 0 {
@@ -164,7 +163,7 @@ func main() {
 
 	selection := tui.NewHBox(
 		library,
-		tui.NewPadder(0, 0, songList),
+		tui.NewPadder(0, 1, songList),
 	)
 
 	root := tui.NewVBox(
@@ -182,44 +181,6 @@ func main() {
 	// move the cursor to the first album
 	libTable.Select(1)
 
-	// navigation
-	down := func() {
-		if libTable.Selected() == len(albums) {
-			return
-		}
-		libTable.Select(libTable.Selected() + 1)
-	}
-	up := func() {
-		if libTable.Selected() == 1 {
-			return
-		}
-		libTable.Select(libTable.Selected() - 1)
-	}
-	ui.SetKeybinding("Up", func() {
-		wrap.Scroll(0, -1)
-		up()
-	})
-	ui.SetKeybinding("Down", func() {
-		wrap.Scroll(0, 1)
-		down()
-	})
-	ui.SetKeybinding("k", func() {
-		wrap.Scroll(0, -1)
-		up()
-	})
-	ui.SetKeybinding("j", func() {
-		wrap.Scroll(0, 1)
-		down()
-	})
-	// c = 4 s = 1
-	// c = 0 s = 1
-	// c = 4 s = 6
-	ui.SetKeybinding("Ctrl+l", func() {
-
-		log.Printf("Focus scroll: %d, curr: %d, table: %d", currentAlbum-libTable.Selected()+1, currentAlbum, libTable.Selected())
-		libTable.Select(currentAlbum + 1)
-		wrap.Scroll(0, 0-(currentAlbum-libTable.Selected()+1))
-	})
 	// TODO: focus command to go to current playing album
 	// controls
 	done := make(chan struct{}, 1)
@@ -265,10 +226,19 @@ func main() {
 				previous,
 			)
 			wg.Done()
-			// do nothing with the error
+			if err != nil {
+				log.Printf("Error playing %s", err)
+			}
 		}()
 
 	}
+
+	// navigation
+	ui.SetKeybinding("Ctrl+l", func() {
+		log.Printf("Focus scroll: %d, curr: %d, table: %d", currentAlbum-libTable.Selected()+1, currentAlbum, libTable.Selected())
+		libTable.Select(currentAlbum + 1)
+		wrap.Scroll(0, -(currentAlbum - libTable.Selected() + 1))
+	})
 
 	pause := func() {
 		lock.Lock()
@@ -278,8 +248,7 @@ func main() {
 			log.Printf("Pause err: %s", err)
 		}
 	}
-	// Key bindings
-	ui.SetKeybinding("q", func() {
+	exit := func() {
 		ui.Quit()
 		log.Printf("Done [q]: ui.Quit")
 		err = player.Release()
@@ -287,13 +256,39 @@ func main() {
 		if err != nil {
 			log.Printf("VLC Release err: %s", err)
 		}
-	})
-	ui.SetKeybinding("Esc", func() { ui.Quit() })
-	ui.SetKeybinding("Ctrl+c", func() { ui.Quit() })
+	}
+	// Quitting
+	ui.SetKeybinding("q", exit)
+	ui.SetKeybinding("Esc", exit)
+	ui.SetKeybinding("Ctrl+c", exit)
 
-	ui.SetKeybinding("Ctrl+n", down)
-	ui.SetKeybinding("Ctrl+p", up)
+	down := func(scroll bool) {
+		if libTable.Selected() == len(albums) {
+			return
+		}
+		if scroll {
+			wrap.Scroll(0, 1)
+		}
+		libTable.Select(libTable.Selected() + 1)
+	}
+	up := func(scroll bool) {
+		if libTable.Selected() == 1 {
+			return
+		}
+		if scroll {
+			wrap.Scroll(0, -1)
+		}
+		libTable.Select(libTable.Selected() - 1)
+	}
+	// Album selection
+	ui.SetKeybinding("Ctrl+n", func() { down(false) })
+	ui.SetKeybinding("Ctrl+p", func() { up(false) })
+	ui.SetKeybinding("Up", func() { up(true) })
+	ui.SetKeybinding("Down", func() { down(true) })
+	ui.SetKeybinding("k", func() { up(true) })
+	ui.SetKeybinding("j", func() { down(true) })
 
+	// Playback
 	ui.SetKeybinding("Enter", play)
 	ui.SetKeybinding("Tab", play)
 	ui.SetKeybinding("p", pause)
@@ -341,8 +336,8 @@ func main() {
 				}
 
 				ui.Update(func() {
-					progress.SetCurrent(int(position * 1000))
 					// position is a float between 0 and 1
+					progress.SetCurrent(int(position * 1000))
 					time.Sleep(time.Millisecond * 50)
 					status.SetText(timestamp(position, length))
 				})
@@ -417,25 +412,10 @@ func playAlbum(p *vlc.Player, a Album, l *tui.List, t *tui.Table, s *tui.StatusB
 		}
 		log.Printf("Playback start %d/%d",
 			current.index, playlist.size)
+		ticker := time.NewTicker(time.Millisecond * 50)
+		defer ticker.Stop()
 	PlaybackLoop:
 		for status != vlc.MediaEnded {
-			lock.Lock()
-			status, err = p.MediaState()
-			lock.Unlock()
-			if err != nil {
-				log.Println("Failure", err)
-				return err
-			}
-			song := songStatus(a, current.index)
-			if song != "" {
-				s.SetPermanentText(song)
-			}
-
-			if t.Selected() == a.Index {
-				l.SetSelected(current.index)
-			} else {
-				l.SetSelected(-1)
-			}
 			select {
 			case <-next:
 				log.Println("Recv on Next")
@@ -452,10 +432,24 @@ func playAlbum(p *vlc.Player, a Album, l *tui.List, t *tui.Table, s *tui.StatusB
 			case <-done:
 				log.Println("Return Done")
 				return err
-			default:
-				continue
-				// FIXME: Do I need this?
-				//time.Sleep(50 * time.Millisecond)
+			case <-ticker.C:
+				lock.Lock()
+				status, err = p.MediaState()
+				lock.Unlock()
+				if err != nil {
+					log.Printf("Failure Getting Media State: %s", err)
+					return err
+				}
+				song := songStatus(a, current.index)
+				if song != "" {
+					s.SetPermanentText(song)
+				}
+
+				if t.Selected() == a.Index {
+					l.SetSelected(current.index)
+				} else {
+					l.SetSelected(-1)
+				}
 			}
 		}
 		if status == vlc.MediaEnded {

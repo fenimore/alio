@@ -87,6 +87,7 @@ func main() {
 	log.Printf("Flags: debug: %t | dir: %s | nocolor: %t",
 		*DEBUG, *DIR, *NOTHEME)
 
+	var currentAlbum int
 	// Collect Albums from FileSystem root Music
 	albums, err := CollectAlbums(*DIR)
 	if err != nil {
@@ -210,6 +211,15 @@ func main() {
 		wrap.Scroll(0, 1)
 		down()
 	})
+	// c = 4 s = 1
+	// c = 0 s = 1
+	// c = 4 s = 6
+	ui.SetKeybinding("Ctrl+l", func() {
+
+		log.Printf("Focus scroll: %d, curr: %d, table: %d", currentAlbum-libTable.Selected()+1, currentAlbum, libTable.Selected())
+		libTable.Select(currentAlbum + 1)
+		wrap.Scroll(0, 0-(currentAlbum-libTable.Selected()+1))
+	})
 	// TODO: focus command to go to current playing album
 	// controls
 	done := make(chan struct{}, 1)
@@ -243,6 +253,7 @@ func main() {
 		go func() {
 			wg.Wait()
 			wg.Add(1)
+			currentAlbum = s
 			err = playAlbum(
 				player,
 				*albums[s],

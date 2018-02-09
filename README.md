@@ -1,53 +1,49 @@
 # Alio
 
-## Commandline album player
+Alio is a commandline album player! By default it looks for a `Music/` directory
+and adds any directory with audio files to the music library. From there you can
+play your music from the comfort of the commandline, with familiar **emacs** style
+keybindings. If you don't store your music locally, this isn't the right player for you :).
 
-Depends on `libvlc 2.X` for _build_ (but the **releases** are dependency free).
-
-```
-         _  _
-     /\ | |(_)
-    /  \| | _  ___
-   / /\ \ || |/ _ \
-  / ____ \|| | (_)
- /_/    \_\|_|\___/
-
-Commandline Album Player!
-
-Keybinding (Hybrid Emacs + Vim):
-Quit: q, Ctrl-c, Esc
-Move down: Ctrl-n, j
-Move up: Ctrl-p, k
-Scroll: Up, Down Arrow
-Play album: Enter, Tab
-Pause: p
-Next Song: Right arrow, Ctrl-f, l
-Previous Song: Left arrow, Ctrl-b, h
-
-looks for a Music/ directory
-    or use -dir flag to designate directory name
-
-  -debug
-        log messages in debug.log
-  -dir string
-        music collection directory (default "Music")
-  -nocolor
-        don't use color highlighting
-```
+Alio is written in go but relies on C bindings for the `libvlc` library. Check out the releases tap to get the latest executable (currently only compiled for Linux).
 
 ![Alio](/screenshot.png?raw=true)
 
+## Flags
 
-### Controls (Hybrid Emacs and Vim)
+- -h             for help
+- -debug:  bool, log messages in debug.log
+- -dir     str,  music collection directory (default "Music")
+- -nocolor bool, don't use color highlighting
 
-- `Ctrl-n`/`j` + `Ctrl-p`/`k` previous and next album.
-- `Ctrl-b`/`h` + `Ctrl-f`/`l` forward and back song.
-- `Ctrl-c` `Esc` and `q` to quit.
--  `Up` and `Down` arrow for scrolling library
-- `Tab` and `Enter` to play an album.
-- `p` to pause.
 
-### UI todos
+## Keybindings (Emacs with some Vim bonuses)
 
-- [x] Scrollable view (mvp)
-- [ ] theme options
+```
+Quit:         Ctrl-c | q | Esc
+
+Move down:    Ctrl-n | j
+Move up:      Ctrl-p | k
+Scroll:       Up / Down
+Page down:    Ctrl-v
+Page up:      Alt-v
+
+Focus cursor: Ctrl-l
+Pause:        p
+Play album:   Enter | Tab
+Next:         Right | Ctrl-f | l
+Previous:     Left  | Ctrl-b | h
+```
+
+## Dependencies:
+
+Alio depends on `libvlc 2.X` for _build_, but the **releases** are dependency free).
+
+- [libvlc-go](https://github.com/adrg/libvlc-go) - MIT
+- [tui-go](https://github.com/marcusolsson/tui-go/) - MIT
+
+## UI todos
+
+- [ ] Scrollable song list
+- [ ] Theme options
+- [ ] Skip n rows

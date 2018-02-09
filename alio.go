@@ -48,15 +48,21 @@ var help = `
 
 Commandline Album Player!
 
-Keybinding (Hybrid Emacs + Vim):
-Quit: q, Ctrl-c, Esc
-Move down: Ctrl-n, j
-Move up: Ctrl-p, k
-Scroll: Up, Down Arrow
-Play album: Enter, Tab
-Pause: p (coming soon: Space)
-Next Song: Right arrow, Ctrl-f, l
-Previous Song: Left arrow, Ctrl-b, h
+Keybinding (Emacs with some Vim bonuses):
+
+Quit:         Ctrl-c | q | Esc
+
+Move down:    Ctrl-n | j
+Move up:      Ctrl-p | k
+Scroll:       Up / Down
+Page down:    Ctrl-v
+Page up:      Alt-v
+
+Focus cursor: Ctrl-l
+Pause:        p
+Play album:   Enter | Tab
+Next:         Right | Ctrl-f | l
+Previous:     Left  | Ctrl-b | h
 
 looks for a Music/ directory
     or use -dir flag to designate directory name

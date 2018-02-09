@@ -14,7 +14,7 @@ import (
 	"time"
 
 	vlc "github.com/adrg/libvlc-go"
-	tui "github.com/marcusolsson/tui-go"
+	tui "github.com/fenimore/tui-go"
 )
 
 var MusicExts = ".mp3 .ogg .m4a .flac"
@@ -120,12 +120,17 @@ func main() {
 
 	// Set up UI
 	libTable := tui.NewTable(0, 1)
-
+	for idx := range albums {
+		libTable.AppendRow(
+			tui.NewLabel(albums[idx].Title),
+		)
+	}
 	aLabel := tui.NewLabel("Albums")
 	sLabel := tui.NewLabel("Songs")
 	aLabel.SetStyleName("album")
 	sLabel.SetStyleName("album")
 	wrap := tui.NewScrollArea(libTable)
+	wrap.SetSizePolicy(tui.Expanding, tui.Expanding)
 	library := tui.NewVBox(
 		aLabel,
 		wrap,
@@ -139,11 +144,6 @@ func main() {
 		tui.NewSpacer(),
 	)
 	songList.SetBorder(false)
-	for idx := range albums {
-		libTable.AppendRow(
-			tui.NewLabel(albums[idx].Title),
-		)
-	}
 
 	progress := tui.NewProgress(1000)
 	progress.SetCurrent(0)
@@ -258,7 +258,6 @@ func main() {
 	scrolledDown := 0
 	scrolledUp := 0
 	down := func(scroll bool) {
-		log.Println("Down", wrap.Size().Y, libTable.Size().Y, libTable.Selected(), scrolledDown)
 		if libTable.Selected() == len(albums) {
 			return
 		} else if libTable.Selected()-scrolledDown >= wrap.Size().Y {
@@ -270,13 +269,19 @@ func main() {
 			wrap.Scroll(0, 1)
 		}
 		libTable.Select(libTable.Selected() + 1)
+		log.Println(
+			"Down",
+			wrap.Size().Y, libTable.Size().Y,
+			libTable.Selected(), scrolledUp, scrolledDown,
+		)
 	}
 	up := func(scroll bool) {
-		log.Println("Up", wrap.Size().Y, libTable.Size().Y, libTable.Selected(), scrolledUp)
 		if libTable.Selected() == 1 {
 			return
 		} else if scrolledDown == 0 {
 			scroll = false
+		} else if scrolledUp+libTable.Selected() == 1 {
+			scroll = true
 		}
 		if scroll {
 			scrolledUp++
@@ -284,6 +289,11 @@ func main() {
 			wrap.Scroll(0, -1)
 		}
 		libTable.Select(libTable.Selected() - 1)
+		log.Println(
+			"Up",
+			wrap.Size().Y, libTable.Size().Y,
+			libTable.Selected(), scrolledUp, scrolledDown,
+		)
 	}
 	// Album selection
 	ui.SetKeybinding("Ctrl+n", func() { down(false) })

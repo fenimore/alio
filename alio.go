@@ -269,11 +269,6 @@ func main() {
 			wrap.Scroll(0, 1)
 		}
 		libTable.Select(libTable.Selected() + 1)
-		log.Println(
-			"Down",
-			wrap.Size().Y, libTable.Size().Y,
-			libTable.Selected(), scrolledUp, scrolledDown,
-		)
 	}
 	up := func(scroll bool) {
 		if libTable.Selected() == 1 {
@@ -289,11 +284,16 @@ func main() {
 			wrap.Scroll(0, -1)
 		}
 		libTable.Select(libTable.Selected() - 1)
-		log.Println(
-			"Up",
-			wrap.Size().Y, libTable.Size().Y,
-			libTable.Selected(), scrolledUp, scrolledDown,
-		)
+	}
+	pageDown := func() {
+		for i := 1; i <= wrap.Size().Y/2; i++ {
+			down(false)
+		}
+	}
+	pageUp := func() {
+		for i := 1; i <= wrap.Size().Y/2; i++ {
+			up(false)
+		}
 	}
 	// Album selection
 	ui.SetKeybinding("Ctrl+n", func() { down(false) })
@@ -302,18 +302,24 @@ func main() {
 	ui.SetKeybinding("Down", func() { down(true) })
 	ui.SetKeybinding("k", func() { up(true) })
 	ui.SetKeybinding("j", func() { down(true) })
+
+	ui.SetKeybinding("Ctrl+v", func() { pageDown() })
+	ui.SetKeybinding("Alt+v", func() { pageUp() })
+
 	ui.SetKeybinding("Ctrl+l", func() {
-		log.Printf("Focus scroll: %d, curr: %d, table: %d", currentAlbum-libTable.Selected()+1, currentAlbum, libTable.Selected())
-		libTable.Select(currentAlbum + 1)
-		if libTable.Selected() < scrolledDown {
-			//wrap.Scroll(0, currentAlbum+scrolledDown)
-
-		} else if libTable.Selected() > wrap.Size().Y {
-			wrap.Scroll(0, currentAlbum+scrolledUp)
-			scrolledDown = currentAlbum
-			scrolledUp -= scrolledDown
+		lowerBound := 0 - scrolledUp
+		upperBound := wrap.Size().Y - scrolledUp
+		position := currentAlbum
+		if position < lowerBound {
+			for i := 0; i < lowerBound-position; i++ {
+				up(true)
+			}
+		} else if position > upperBound {
+			for i := 0; i < lowerBound-position; i++ {
+				down(true)
+			}
 		}
-
+		libTable.Select(currentAlbum + 1)
 	})
 	// Playback
 	ui.SetKeybinding("Enter", play)

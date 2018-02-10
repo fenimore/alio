@@ -169,7 +169,7 @@ func main() {
 
 	selection := tui.NewHBox(
 		library,
-		tui.NewPadder(0, 1, songList),
+		tui.NewPadder(1, 0, songList),
 	)
 
 	root := tui.NewVBox(

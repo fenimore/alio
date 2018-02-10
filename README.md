@@ -3,9 +3,21 @@
 Alio is a commandline album player! By default it looks for a `Music/` directory
 and adds any directory with audio files to the music library. From there you can
 play your music from the comfort of the commandline, with familiar **emacs** style
-keybindings. If you don't store your music locally, this isn't the right player for you :).
+keybindings.
 
-Alio is written in go but relies on C bindings for the `libvlc` library. Check out the releases tap to get the latest executable _dependency free_ (currently only compiled for Linux).
+If you don't store your music locally, this isn't the right player for you :)
+
+Alio is written in **Go** but relies on C bindings for the `libvlc v2.x` library. Check out the releases tap to get the latest executable _dependency free_ (currently only compiled for Linux). Otherwise building it should be as simple as (if you have libvlc installed):
+
+    go build alio.go
+    # to install:
+    go install github.com/fenimore/alio
+
+
+And to run it,
+
+    alio -dir=/home/USER/Music
+
 
 ![Alio](/screenshot.png?raw=true)
 
@@ -64,4 +76,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 - [ ] Scrollable song list
 - [ ] Theme options
-- [ ] Skip n rows
+- [ ] Skip `n` rows
+
+## The name Alio
+
+Alio was formed from a typo when developing. The original name was `Adio`, which itself
+was an intentional typo for Audio. I figured `alio` makes sense because it is intended to
+play **al**bums.

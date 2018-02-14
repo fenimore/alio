@@ -158,11 +158,7 @@ func main() {
 	aLabel.SetStyleName("album")
 	sLabel.SetStyleName("album")
 	wrap := tui.NewScrollArea(libTable)
-	h, w := wrap.SizePolicy()
-	log.Printf("Size Policy %d %d", h, w)
-	wrap.SetSizePolicy(tui.Expanding, tui.Expanding)
-	h, w = wrap.SizePolicy()
-	log.Printf("Size Policy %d %d", h, w)
+	wrap.SetSizePolicy(tui.Maximum, tui.Expanding)
 	library := tui.NewVBox(
 		aLabel,
 		wrap,
@@ -193,7 +189,7 @@ func main() {
 
 	selection := tui.NewHBox(
 		library,
-		tui.NewPadder(1, 0, songList),
+		tui.NewPadder(0, 0, songList),
 	)
 	selection.SetSizePolicy(tui.Preferred, tui.Expanding)
 	root := tui.NewVBox(

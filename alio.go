@@ -9,6 +9,8 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
+	"runtime/pprof"
 	"strings"
 	"sync"
 	"time"
@@ -68,21 +70,44 @@ looks for a Music/ directory
     or use -dir flag to designate directory name
 `
 
+var cpuprofile = flag.String("cpuprofile", "", "write cpu profile `file`")
+var memprofile = flag.String("memprofile", "", "write memory profile to `file`")
+var directory = flag.String("dir", "Music", "music collection directory")
+var debug = flag.Bool("debug", false, "log messages in debug.log")
+var notheme = flag.Bool("nocolor", false, "don't use color highlighting")
+
 func main() {
 	flag.Usage = func() {
 		fmt.Printf("%s\n\n%s\n", help, "-h for help")
 		flag.PrintDefaults()
 		os.Exit(0)
 	}
-	DIR := flag.String("dir", "Music",
-		"music collection directory")
-	DEBUG := flag.Bool("debug", false,
-		"log messages in debug.log")
-	NOTHEME := flag.Bool("nocolor", false,
-		"don't use color highlighting")
+
 	flag.Parse()
 
-	if *DEBUG {
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			log.Fatal("could not create CPU profile: ", err)
+		}
+		if err := pprof.StartCPUProfile(f); err != nil {
+			log.Fatal("could not start CPU profile: ", err)
+		}
+		defer pprof.StopCPUProfile()
+	}
+	if *memprofile != "" {
+		f, err := os.Create(*memprofile)
+		if err != nil {
+			log.Fatal("could not create memory profile: ", err)
+		}
+		runtime.GC() // get up-to-date statistics
+		if err := pprof.WriteHeapProfile(f); err != nil {
+			log.Fatal("could not write memory profile: ", err)
+		}
+		f.Close()
+	}
+
+	if *debug {
 		logfile, err := os.Create("debug.log")
 		if err == nil {
 			log.SetOutput(logfile)
@@ -90,12 +115,9 @@ func main() {
 	} else {
 		log.SetOutput(ioutil.Discard)
 	}
-	log.Printf("Flags: debug: %t | dir: %s | nocolor: %t",
-		*DEBUG, *DIR, *NOTHEME)
-
 	var currentAlbum int
 	// Collect Albums from FileSystem root Music
-	albums, err := CollectAlbums(*DIR)
+	albums, err := CollectAlbums(*directory)
 	if err != nil {
 		panic(err)
 	}
@@ -136,11 +158,14 @@ func main() {
 	aLabel.SetStyleName("album")
 	sLabel.SetStyleName("album")
 	wrap := tui.NewScrollArea(libTable)
+	h, w := wrap.SizePolicy()
+	log.Printf("Size Policy %d %d", h, w)
 	wrap.SetSizePolicy(tui.Expanding, tui.Expanding)
+	h, w = wrap.SizePolicy()
+	log.Printf("Size Policy %d %d", h, w)
 	library := tui.NewVBox(
 		aLabel,
 		wrap,
-		tui.NewSpacer(),
 	)
 	library.SetBorder(false)
 	list := tui.NewList()
@@ -150,7 +175,6 @@ func main() {
 		tui.NewSpacer(),
 	)
 	songList.SetBorder(false)
-
 	progress := tui.NewProgress(1000)
 	progress.SetCurrent(0)
 
@@ -171,12 +195,11 @@ func main() {
 		library,
 		tui.NewPadder(1, 0, songList),
 	)
-
+	selection.SetSizePolicy(tui.Preferred, tui.Expanding)
 	root := tui.NewVBox(
 		selection,
 		progress,
 		status,
-		tui.NewSpacer(),
 	)
 
 	ui, err = tui.New(root)
@@ -356,6 +379,8 @@ func main() {
 
 	// update goroutine // TODO: must end?
 	go func() {
+		ticker := time.NewTicker(time.Millisecond * 500)
+		defer ticker.Stop()
 		for {
 			lock.Lock()
 			playing := player.IsPlaying()
@@ -381,6 +406,7 @@ func main() {
 					status.SetText(timestamp(position, length))
 				})
 			}
+			<-ticker.C
 		}
 	}()
 
@@ -401,7 +427,7 @@ func main() {
 	theme.SetStyle("label.album", tui.Style{
 		Bg: tui.ColorDefault, Fg: tui.ColorYellow,
 	})
-	if !*NOTHEME {
+	if !*notheme {
 		ui.SetTheme(theme)
 	}
 	log.Println(libTable.MinSizeHint())

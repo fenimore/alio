@@ -7,7 +7,9 @@ keybindings.
 
 If you don't store your music locally, this isn't the right player for you :)
 
-Alio is written in **Go** but relies on C bindings for the `libvlc v2.x` library. Check out the releases tap to get the latest executable _dependency free_ (currently only compiled for Linux). Otherwise building it should be as simple as (if you have libvlc installed):
+Alio is written in **Go** but relies on C bindings for the `libvlc v2.x` library. Check out the releases tap to get the latest executable _dependency free_ (currently only compiled for Linux). Get the latest stable binary at the [releases tab](https://github.com/fenimore/alio/releases/latest).
+
+Otherwise building it should be as simple as (if you have libvlc installed).
 
     go build alio.go
     # to install:

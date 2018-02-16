@@ -14,7 +14,7 @@ import (
 	"time"
 
 	vlc "github.com/adrg/libvlc-go"
-	tui "github.com/fenimore/tui-go"
+	tui "github.com/marcusolsson/tui-go"
 )
 
 var MusicExts = ".mp3 .ogg .m4a .flac"
@@ -68,8 +68,8 @@ looks for a Music/ directory
     or use -dir flag to designate directory name
 `
 
-var cpuprofile = flag.String("cpuprofile", "", "write cpu profile `file`")
-var memprofile = flag.String("memprofile", "", "write memory profile to `file`")
+//var cpuprofile = flag.String("cpuprofile", "", "write cpu profile `file`")
+//var memprofile = flag.String("memprofile", "", "write memory profile to `file`")
 var directory = flag.String("dir", "Music", "music collection directory")
 var debug = flag.Bool("debug", false, "log messages in debug.log")
 var notheme = flag.Bool("nocolor", false, "don't use color highlighting")
